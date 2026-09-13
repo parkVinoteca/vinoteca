@@ -3,7 +3,13 @@ import { createClient } from '@supabase/supabase-js'
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey)
+export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+  auth: {
+    persistSession: true,      // 브라우저를 껐다 켜도 로그인 유지
+    autoRefreshToken: true,    // 세션 만료 전 자동 갱신 (로그아웃 방지)
+    detectSessionInUrl: true,  // OAuth 리다이렉트 후 세션 자동 감지
+  },
+})
 
 export type Database = {
   public: {
