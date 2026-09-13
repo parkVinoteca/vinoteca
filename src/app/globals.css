@@ -1,0 +1,45 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --wine: #7a1c3a;
+  --wine-light: #ab2046;
+  --parchment: #F8F5EF;
+  --ink: #1C1C1C;
+}
+
+body {
+  background-color: var(--parchment);
+  color: var(--ink);
+}
+
+@layer components {
+  .btn-primary {
+    @apply bg-wine-800 text-white px-6 py-3 rounded-none font-medium tracking-widest text-xs uppercase transition-colors hover:bg-wine-700 active:bg-wine-900 disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+  .btn-secondary {
+    @apply border border-wine-800 text-wine-800 px-6 py-3 rounded-none font-medium tracking-widest text-xs uppercase transition-colors hover:bg-wine-50;
+  }
+  .chip {
+    @apply px-3 py-1.5 border border-gray-200 text-xs text-gray-400 cursor-pointer transition-all bg-parchment hover:border-wine-400 hover:text-gray-700;
+  }
+  .chip-on {
+    @apply bg-wine-50 border-wine-600 text-wine-800 font-medium;
+  }
+  .section-title {
+    @apply text-xs font-medium tracking-widest uppercase text-wine-800 border-b border-wine-100 pb-2 mb-4;
+  }
+  .input-field {
+    @apply w-full bg-white border-0 border-b border-gray-200 px-0 py-2 text-sm text-ink focus:outline-none focus:border-wine-600 transition-colors placeholder-gray-300;
+  }
+  .scale-btn {
+    @apply flex-1 py-2 px-1 text-center text-xs text-gray-400 border-r border-gray-200 last:border-r-0 cursor-pointer transition-all hover:bg-wine-50 hover:text-gray-700;
+  }
+  .scale-btn-on {
+    @apply bg-wine-800 text-white;
+  }
+  .card {
+    @apply bg-white border border-gray-100 shadow-sm;
+  }
+}

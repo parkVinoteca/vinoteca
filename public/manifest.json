@@ -1,0 +1,13 @@
+{
+  "name": "Vinoteca",
+  "short_name": "Vinoteca",
+  "description": "ワインテイスティング記録",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#F8F5EF",
+  "theme_color": "#7a1c3a",
+  "icons": [
+    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}
