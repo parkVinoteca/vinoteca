@@ -365,12 +365,17 @@ export default function TastingSheet({ lang, user, onBack, blindSessionId, blind
               {/* Wine Type */}
               <div>
                 <label className="text-[10px] tracking-widest uppercase text-gold-400 mb-1 block">{lang === 'ja' ? 'タイプ' : '타입'}</label>
-                <ChipGroup
-                  options={Object.values(t.wineType)}
-                  selected={wineType}
-                  onToggle={setWineType}
-                  single
-                />
+                <div className="flex flex-wrap gap-1.5">
+                  {Object.entries(t.wineType).map(([key, label]) => (
+                    <button
+                      key={key}
+                      onClick={() => setWineType(wineType === key ? '' : key)}
+                      className={`chip ${wineType === key ? 'chip-on' : ''}`}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
               </div>
 
               {/* Expert Scores */}
