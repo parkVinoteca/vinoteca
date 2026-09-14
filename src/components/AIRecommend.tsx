@@ -139,7 +139,7 @@ export default function AIRecommend({ lang, user, onBack }: Props) {
 
         try {
           const res = await fetch(
-            `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key=${process.env.NEXT_PUBLIC_GEMINI_API_KEY}`,
+            `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${process.env.NEXT_PUBLIC_GEMINI_API_KEY}`,
             {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
@@ -158,6 +158,13 @@ export default function AIRecommend({ lang, user, onBack }: Props) {
           if (!res.ok) {
             const errBody = await res.text()
             console.error('Gemini API error response:', res.status, errBody)
+            if (res.status === 429) {
+              throw new Error(
+                lang === 'ja'
+                  ? '現在アクセスが集中しています。1分ほど待ってから再度お試しください。'
+                  : '현재 접속이 몰려있습니다. 1분 정도 기다린 후 다시 시도해주세요.'
+              )
+            }
             throw new Error(`API ${res.status}: ${errBody.slice(0, 200)}`)
           }
 
