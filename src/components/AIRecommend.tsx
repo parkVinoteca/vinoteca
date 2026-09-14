@@ -34,8 +34,16 @@ export default function AIRecommend({ lang, user, onBack }: Props) {
           ? `User's tasting history (${history.length} wines): ${JSON.stringify(history.slice(0, 10))}`
           : 'No tasting history yet'
 
+        const hasHistory = history && history.length > 0
+        const matchInstructionJa = hasHistory
+          ? '記録データと比較して相性スコアを0〜100で算出してください。'
+          : 'まだテイスティング記録がないため、matchScoreはnull、matchReasonは「記録を増やすとより正確な相性診断ができます」としてください。'
+        const matchInstructionKo = hasHistory
+          ? '기록 데이터와 비교해서 취향 일치도를 0~100으로 산출해주세요.'
+          : '아직 테이스팅 기록이 없으므로 matchScore는 null, matchReason은 "기록이 쌓이면 더 정확한 취향 진단이 가능합니다"로 해주세요.'
+
         const prompt = lang === 'ja'
-          ? `このワインのラベルを分析してください。また、ユーザーの好みデータも参考にして相性スコアを出してください。
+          ? `このワインのラベルを分析してください。ワイン自体の情報（生産者・産地・品種など）を正確に読み取ることが最優先です。${matchInstructionJa}
 
 ${prefsText}
 
@@ -50,13 +58,13 @@ ${prefsText}
   "wineType": "タイプ",
   "description": "このワインの特徴（2〜3文）",
   "characteristics": ["特徴1", "特徴2", "特徴3"],
-  "matchScore": 75,
+  "matchScore": ${hasHistory ? '75' : 'null'},
   "matchReason": "相性スコアの理由（2文）",
   "recommendedFor": "おすすめシーン",
   "estimatedPrice": "予想価格帯",
   "expertScore": "予想専門家スコア（例: WS90点）"
 }`
-          : `이 와인 라벨을 분석해주세요. 사용자의 취향 데이터도 참고해서 취향 일치도를 계산해주세요.
+          : `이 와인 라벨을 분석해주세요. 와인 자체의 정보(생산자·산지·품종 등)를 정확히 읽어내는 것이 최우선입니다. ${matchInstructionKo}
 
 ${prefsText}
 
@@ -71,7 +79,7 @@ ${prefsText}
   "wineType": "타입",
   "description": "이 와인의 특징 (2~3문장)",
   "characteristics": ["특징1", "특징2", "특징3"],
-  "matchScore": 75,
+  "matchScore": ${hasHistory ? '75' : 'null'},
   "matchReason": "일치도 이유 (2문장)",
   "recommendedFor": "추천 상황",
   "estimatedPrice": "예상 가격대",
@@ -117,7 +125,9 @@ ${prefsText}
   return (
     <div className="max-w-lg mx-auto p-4">
       <div className="section-title">{t.recommend.title}</div>
-      <div className="text-xs text-cave-100 mb-4">{t.recommend.based}</div>
+      <div className="text-sm text-gold-200 mb-1">{t.recommend.subtitle}</div>
+      <div className="text-xs text-cave-100 mb-1">{t.recommend.based}</div>
+      <div className="text-[11px] text-cave-200 mb-4">💡 {t.recommend.infoOnly}</div>
 
       <input
         ref={fileRef}
@@ -178,20 +188,27 @@ ${prefsText}
           {/* Match Score */}
           <div className="card p-4">
             <div className="text-xs font-medium text-ink mb-3">{t.recommend.match}</div>
-            <div className="flex items-center gap-4">
-              <div className={`font-serif text-5xl font-bold ${matchColor(result.matchScore)}`}>
-                {result.matchScore}
-              </div>
-              <div className="flex-1">
-                <div className="h-3 bg-cave-600/50 rounded-full overflow-hidden">
-                  <div
-                    className={`h-full rounded-full transition-all ${matchBg(result.matchScore)}`}
-                    style={{ width: `${result.matchScore}%` }}
-                  />
+            {result.matchScore !== null && result.matchScore !== undefined ? (
+              <div className="flex items-center gap-4">
+                <div className={`font-serif text-5xl font-bold ${matchColor(result.matchScore)}`}>
+                  {result.matchScore}
                 </div>
-                <div className="text-xs text-cave-100 mt-2">{result.matchReason}</div>
+                <div className="flex-1">
+                  <div className="h-3 bg-cave-600/50 rounded-full overflow-hidden">
+                    <div
+                      className={`h-full rounded-full transition-all ${matchBg(result.matchScore)}`}
+                      style={{ width: `${result.matchScore}%` }}
+                    />
+                  </div>
+                  <div className="text-xs text-cave-100 mt-2">{result.matchReason}</div>
+                </div>
               </div>
-            </div>
+            ) : (
+              <div className="flex items-center gap-3 text-cave-100">
+                <span className="text-2xl">📝</span>
+                <div className="text-xs">{result.matchReason}</div>
+              </div>
+            )}
           </div>
 
           {/* Description */}

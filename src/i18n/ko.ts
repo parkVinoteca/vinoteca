@@ -5,7 +5,7 @@ export const ko = {
     tasting: '테이스팅',
     blind: '블라인드',
     cellar: '내 와인',
-    recommend: 'AI 추천',
+    recommend: 'AI 소믈리에',
     profile: '프로필',
   },
   tasting: {
@@ -79,11 +79,13 @@ export const ko = {
     noData: '아직 기록이 없습니다',
   },
   recommend: {
-    title: 'AI 추천',
-    upload: '와인 사진 업로드',
+    title: 'AI 소믈리에',
+    subtitle: '와인 정보 검색 + 내 취향과의 궁합까지',
+    upload: '라벨 촬영 / 사진 업로드',
     analyze: '분석하기',
     match: '취향 일치도',
-    based: '내 평가 데이터 기반 분석',
+    based: '기록 데이터 기반 분석 (기록이 많을수록 정확도 상승)',
+    infoOnly: '이 기능은 와인 자체 정보 검색용으로도 사용 가능합니다',
   },
   common: {
     cancel: '취소',

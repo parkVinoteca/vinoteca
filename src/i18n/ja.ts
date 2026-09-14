@@ -5,7 +5,7 @@ export const ja = {
     tasting: 'テイスティング',
     blind: 'ブラインド',
     cellar: 'マイワイン',
-    recommend: 'AI推薦',
+    recommend: 'AIソムリエ',
     profile: 'プロフィール',
   },
   tasting: {
@@ -79,11 +79,13 @@ export const ja = {
     noData: 'まだ記録がありません',
   },
   recommend: {
-    title: 'AI推薦',
-    upload: 'ワインの写真をアップロード',
+    title: 'AIソムリエ',
+    subtitle: 'ワインの正体を知る、あなたに合うかもわかる',
+    upload: 'ラベルを撮影 / アップロード',
     analyze: '解析する',
     match: '相性スコア',
-    based: 'あなたの好みに基づく分析',
+    based: '記録データに基づく分析（記録が増えるほど精度UP）',
+    infoOnly: 'この機能はワイン自体の情報検索にも使えます',
   },
   common: {
     cancel: 'キャンセル',
