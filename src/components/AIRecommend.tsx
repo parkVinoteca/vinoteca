@@ -139,10 +139,13 @@ export default function AIRecommend({ lang, user, onBack }: Props) {
 
         try {
           const res = await fetch(
-            `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key=${process.env.NEXT_PUBLIC_GEMINI_API_KEY}`,
+            `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent`,
             {
               method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
+              headers: {
+                'Content-Type': 'application/json',
+                'X-goog-api-key': process.env.NEXT_PUBLIC_GEMINI_API_KEY!,
+              },
               body: JSON.stringify({
                 contents: [{
                   parts: [
