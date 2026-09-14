@@ -53,11 +53,11 @@ export default function HomeScreen({ lang, user, onNavigate }: Props) {
     <div className="p-4 max-w-lg mx-auto">
       {/* Welcome */}
       <div className="py-6">
-        <div className="text-xs text-gray-400 tracking-widest uppercase mb-1">
+        <div className="text-xs text-cave-100 tracking-widest uppercase mb-1">
           {lang === 'ja' ? 'ようこそ' : '환영합니다'}
         </div>
-        <div className="font-serif text-2xl text-wine-800">Vinoteca</div>
-        <div className="text-xs text-gray-400 mt-1">{user.email}</div>
+        <div className="font-serif text-2xl text-gold-300">Vinoteca</div>
+        <div className="text-xs text-cave-100 mt-1">{user.email}</div>
       </div>
 
       {/* Stats Grid */}
@@ -70,8 +70,8 @@ export default function HomeScreen({ lang, user, onNavigate }: Props) {
         ].map((s, i) => (
           <div key={i} className="card p-4">
             <div className="text-2xl mb-1">{s.icon}</div>
-            <div className="text-xs text-gray-400 mb-0.5">{s.label}</div>
-            <div className="font-medium text-wine-800 text-sm">{s.value}</div>
+            <div className="text-xs text-cave-100 mb-0.5">{s.label}</div>
+            <div className="font-medium text-gold-300 text-sm">{s.value}</div>
           </div>
         ))}
       </div>
@@ -82,36 +82,36 @@ export default function HomeScreen({ lang, user, onNavigate }: Props) {
         <div className="space-y-2">
           <button
             onClick={() => onNavigate('tasting')}
-            className="w-full card p-4 flex items-center gap-4 hover:bg-wine-50 transition-colors text-left"
+            className="w-full card p-4 flex items-center gap-4 hover:bg-gold-900/20 transition-colors text-left"
           >
             <span className="text-2xl">📝</span>
             <div>
-              <div className="font-medium text-sm text-wine-800">{t.tasting.normal}</div>
-              <div className="text-xs text-gray-400">{lang === 'ja' ? 'ラベルを撮影して記録' : '라벨을 찍어 기록'}</div>
+              <div className="font-medium text-sm text-gold-300">{t.tasting.normal}</div>
+              <div className="text-xs text-cave-100">{lang === 'ja' ? 'ラベルを撮影して記録' : '라벨을 찍어 기록'}</div>
             </div>
-            <span className="ml-auto text-gray-300">›</span>
+            <span className="ml-auto text-cave-200">›</span>
           </button>
           <button
             onClick={() => onNavigate('blind')}
-            className="w-full card p-4 flex items-center gap-4 hover:bg-wine-50 transition-colors text-left"
+            className="w-full card p-4 flex items-center gap-4 hover:bg-gold-900/20 transition-colors text-left"
           >
             <span className="text-2xl">🎭</span>
             <div>
-              <div className="font-medium text-sm text-wine-800">{t.tasting.blind}</div>
-              <div className="text-xs text-gray-400">{lang === 'ja' ? 'グループセッションを開始' : '그룹 세션 시작'}</div>
+              <div className="font-medium text-sm text-gold-300">{t.tasting.blind}</div>
+              <div className="text-xs text-cave-100">{lang === 'ja' ? 'グループセッションを開始' : '그룹 세션 시작'}</div>
             </div>
-            <span className="ml-auto text-gray-300">›</span>
+            <span className="ml-auto text-cave-200">›</span>
           </button>
           <button
             onClick={() => onNavigate('recommend')}
-            className="w-full card p-4 flex items-center gap-4 hover:bg-wine-50 transition-colors text-left"
+            className="w-full card p-4 flex items-center gap-4 hover:bg-gold-900/20 transition-colors text-left"
           >
             <span className="text-2xl">🤖</span>
             <div>
-              <div className="font-medium text-sm text-wine-800">{t.recommend.title}</div>
-              <div className="text-xs text-gray-400">{lang === 'ja' ? '写真でワインを解析' : '사진으로 와인 분석'}</div>
+              <div className="font-medium text-sm text-gold-300">{t.recommend.title}</div>
+              <div className="text-xs text-cave-100">{lang === 'ja' ? '写真でワインを解析' : '사진으로 와인 분석'}</div>
             </div>
-            <span className="ml-auto text-gray-300">›</span>
+            <span className="ml-auto text-cave-200">›</span>
           </button>
         </div>
       </div>
@@ -121,7 +121,7 @@ export default function HomeScreen({ lang, user, onNavigate }: Props) {
         <div>
           <div className="section-title flex items-center justify-between">
             <span>{lang === 'ja' ? '最近の記録' : '최근 기록'}</span>
-            <button onClick={() => onNavigate('cellar')} className="text-wine-600 text-xs normal-case tracking-normal">
+            <button onClick={() => onNavigate('cellar')} className="text-gold-400 text-xs normal-case tracking-normal">
               {lang === 'ja' ? 'すべて見る →' : '전체 보기 →'}
             </button>
           </div>
@@ -131,22 +131,22 @@ export default function HomeScreen({ lang, user, onNavigate }: Props) {
                 {tasting.label_image_url ? (
                   <img src={tasting.label_image_url} alt="" className="w-10 h-14 object-cover" />
                 ) : (
-                  <div className="w-10 h-14 bg-wine-100 flex items-center justify-center text-wine-400 text-xl">🍷</div>
+                  <div className="w-10 h-14 bg-cave-500/40 flex items-center justify-center text-gold-500/60 text-xl">🍷</div>
                 )}
                 <div className="flex-1 min-w-0">
                   <div className="font-medium text-sm text-ink truncate">
                     {tasting.wine_name || tasting.producer || (lang === 'ja' ? '名称未設定' : '이름 없음')}
                   </div>
-                  <div className="text-xs text-gray-400">
+                  <div className="text-xs text-cave-100">
                     {tasting.vintage && `${tasting.vintage} · `}
                     {tasting.country || tasting.region || ''}
                   </div>
-                  <div className="text-xs text-gray-400">
+                  <div className="text-xs text-cave-100">
                     {new Date(tasting.created_at).toLocaleDateString(lang === 'ja' ? 'ja-JP' : 'ko-KR')}
                   </div>
                 </div>
                 {tasting.score && (
-                  <div className="text-wine-800 font-serif text-xl font-bold">{tasting.score}</div>
+                  <div className="text-gold-300 font-serif text-xl font-bold">{tasting.score}</div>
                 )}
               </div>
             ))}
@@ -155,7 +155,7 @@ export default function HomeScreen({ lang, user, onNavigate }: Props) {
       )}
 
       {recentTastings.length === 0 && (
-        <div className="text-center py-12 text-gray-400">
+        <div className="text-center py-12 text-cave-100">
           <div className="text-4xl mb-3">🍷</div>
           <div className="text-sm">{lang === 'ja' ? 'まだ記録がありません' : '아직 기록이 없습니다'}</div>
           <div className="text-xs mt-1">{lang === 'ja' ? '最初のテイスティングを記録しましょう' : '첫 번째 테이스팅을 기록해보세요'}</div>

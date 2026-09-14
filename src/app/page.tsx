@@ -33,8 +33,8 @@ export default function App() {
   if (loading) return (
     <div className="min-h-screen flex items-center justify-center bg-parchment">
       <div className="text-center">
-        <div className="text-4xl font-serif text-wine-800 mb-2">Vinoteca</div>
-        <div className="text-xs tracking-widest text-gray-400">{t.common.loading}</div>
+        <div className="text-5xl font-serif italic text-gold-400 mb-2 text-gold-glow tracking-wide">Vinoteca</div>
+        <div className="text-[10px] tracking-[0.3em] text-cave-200 uppercase">{t.common.loading}</div>
       </div>
     </div>
   )
@@ -44,20 +44,20 @@ export default function App() {
   return (
     <div className="min-h-screen bg-parchment flex flex-col">
       {/* Header */}
-      <header className="bg-wine-800 text-white px-4 py-3 flex items-center justify-between sticky top-0 z-50 shadow-md">
-        <button onClick={() => setScreen('home')} className="font-serif text-xl tracking-wider">
+      <header className="bg-cave-700/90 backdrop-blur-md border-b border-gold-900/30 text-ink px-4 py-3 flex items-center justify-between sticky top-0 z-50">
+        <button onClick={() => setScreen('home')} className="font-serif italic text-xl tracking-wider text-gold-300">
           Vinoteca
         </button>
         <div className="flex items-center gap-3">
           <button
             onClick={() => setLang(lang === 'ja' ? 'ko' : 'ja')}
-            className="text-xs border border-white/30 px-2 py-1 rounded-sm hover:bg-white/10 transition-colors"
+            className="text-xs border border-gold-700/40 text-gold-200 px-2 py-1 rounded-full hover:bg-gold-900/20 hover:border-gold-500/60 transition-colors"
           >
             {lang === 'ja' ? '🇰🇷 한국어' : '🇯🇵 日本語'}
           </button>
           <button
             onClick={() => supabase.auth.signOut()}
-            className="text-xs text-white/60 hover:text-white transition-colors"
+            className="text-xs text-cave-100 hover:text-gold-300 transition-colors"
           >
             ログアウト
           </button>
@@ -74,7 +74,7 @@ export default function App() {
       </main>
 
       {/* Bottom Navigation */}
-      <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-100 flex z-50 shadow-lg">
+      <nav className="fixed bottom-0 left-0 right-0 bg-cave-700/95 backdrop-blur-md border-t border-gold-900/30 flex z-50 shadow-[0_-4px_20px_rgba(0,0,0,0.4)]">
         {([
           { id: 'home', icon: '🏠', label: t.nav.home },
           { id: 'tasting', icon: '📝', label: t.nav.tasting },
@@ -86,7 +86,7 @@ export default function App() {
             key={item.id}
             onClick={() => setScreen(item.id)}
             className={`flex-1 flex flex-col items-center py-2 gap-0.5 transition-colors ${
-              screen === item.id ? 'text-wine-800' : 'text-gray-400'
+              screen === item.id ? 'text-gold-400' : 'text-cave-200'
             }`}
           >
             <span className="text-lg">{item.icon}</span>

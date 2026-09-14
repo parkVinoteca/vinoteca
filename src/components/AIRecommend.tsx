@@ -117,7 +117,7 @@ ${prefsText}
   return (
     <div className="max-w-lg mx-auto p-4">
       <div className="section-title">{t.recommend.title}</div>
-      <div className="text-xs text-gray-400 mb-4">{t.recommend.based}</div>
+      <div className="text-xs text-cave-100 mb-4">{t.recommend.based}</div>
 
       <input
         ref={fileRef}
@@ -131,13 +131,13 @@ ${prefsText}
       <button
         onClick={() => fileRef.current?.click()}
         disabled={analyzing}
-        className="w-full border-2 border-dashed border-wine-200 py-10 text-center text-gray-400 hover:border-wine-400 transition-colors mb-4"
+        className="w-full border-2 border-dashed border-gold-900/30 py-10 text-center text-cave-100 hover:border-gold-500/40 transition-colors mb-4"
       >
         {analyzing ? (
           <div>
             <div className="text-3xl animate-pulse">🤖</div>
             <div className="text-sm mt-2">{t.tasting.analyzing}</div>
-            <div className="text-xs text-wine-400 mt-1">
+            <div className="text-xs text-gold-500/60 mt-1">
               {lang === 'ja' ? 'あなたの好みと照合中...' : '취향 분석 중...'}
             </div>
           </div>
@@ -145,7 +145,7 @@ ${prefsText}
           <div>
             <div className="text-3xl">📷</div>
             <div className="text-sm mt-2">{t.recommend.upload}</div>
-            <div className="text-xs text-wine-400 mt-1">
+            <div className="text-xs text-gold-500/60 mt-1">
               {lang === 'ja' ? 'ラベルを撮影 or アップロード' : '라벨 촬영 또는 업로드'}
             </div>
           </div>
@@ -155,41 +155,41 @@ ${prefsText}
       {result && (
         <div className="space-y-3">
           {imageUrl && (
-            <img src={imageUrl} alt="" className="w-full max-h-48 object-contain bg-gray-50" />
+            <img src={imageUrl} alt="" className="w-full max-h-48 object-contain bg-cave-600/30" />
           )}
 
           {/* Wine Info */}
           <div className="card p-4">
-            <div className="font-serif text-xl text-wine-800">{result.wineName}</div>
-            {result.producer && <div className="text-sm text-gray-500">{result.producer}</div>}
+            <div className="font-serif text-xl text-gold-300">{result.wineName}</div>
+            {result.producer && <div className="text-sm text-cave-100">{result.producer}</div>}
             <div className="flex flex-wrap gap-1.5 mt-2">
               {[result.vintage, result.region, result.country, result.grapeVariety].filter(Boolean).map(d => (
-                <span key={d} className="text-xs bg-gray-100 px-2 py-0.5 text-gray-600">{d}</span>
+                <span key={d} className="text-xs bg-cave-600/50 px-2 py-0.5 text-cave-50">{d}</span>
               ))}
             </div>
             {result.estimatedPrice && (
-              <div className="mt-2 text-xs text-wine-600">{lang === 'ja' ? '参考価格: ' : '참고 가격: '}{result.estimatedPrice}</div>
+              <div className="mt-2 text-xs text-gold-400">{lang === 'ja' ? '参考価格: ' : '참고 가격: '}{result.estimatedPrice}</div>
             )}
             {result.expertScore && (
-              <div className="text-xs text-gray-500">{lang === 'ja' ? '専門家評価: ' : '전문가 점수: '}{result.expertScore}</div>
+              <div className="text-xs text-cave-100">{lang === 'ja' ? '専門家評価: ' : '전문가 점수: '}{result.expertScore}</div>
             )}
           </div>
 
           {/* Match Score */}
           <div className="card p-4">
-            <div className="text-xs font-medium text-gray-700 mb-3">{t.recommend.match}</div>
+            <div className="text-xs font-medium text-ink mb-3">{t.recommend.match}</div>
             <div className="flex items-center gap-4">
               <div className={`font-serif text-5xl font-bold ${matchColor(result.matchScore)}`}>
                 {result.matchScore}
               </div>
               <div className="flex-1">
-                <div className="h-3 bg-gray-100 rounded-full overflow-hidden">
+                <div className="h-3 bg-cave-600/50 rounded-full overflow-hidden">
                   <div
                     className={`h-full rounded-full transition-all ${matchBg(result.matchScore)}`}
                     style={{ width: `${result.matchScore}%` }}
                   />
                 </div>
-                <div className="text-xs text-gray-500 mt-2">{result.matchReason}</div>
+                <div className="text-xs text-cave-100 mt-2">{result.matchReason}</div>
               </div>
             </div>
           </div>
@@ -197,10 +197,10 @@ ${prefsText}
           {/* Description */}
           {result.description && (
             <div className="card p-4">
-              <div className="text-xs font-medium text-gray-700 mb-2">
+              <div className="text-xs font-medium text-ink mb-2">
                 {lang === 'ja' ? 'ワインの特徴' : '와인 특징'}
               </div>
-              <div className="text-sm text-gray-600 leading-relaxed">{result.description}</div>
+              <div className="text-sm text-cave-50 leading-relaxed">{result.description}</div>
               {result.characteristics && (
                 <div className="flex flex-wrap gap-1.5 mt-3">
                   {result.characteristics.map((c: string) => (
@@ -215,8 +215,8 @@ ${prefsText}
             <div className="card p-3 flex items-center gap-3">
               <span className="text-2xl">🥂</span>
               <div>
-                <div className="text-[10px] text-gray-400">{lang === 'ja' ? 'おすすめシーン' : '추천 상황'}</div>
-                <div className="text-sm text-gray-700">{result.recommendedFor}</div>
+                <div className="text-[10px] text-cave-100">{lang === 'ja' ? 'おすすめシーン' : '추천 상황'}</div>
+                <div className="text-sm text-ink">{result.recommendedFor}</div>
               </div>
             </div>
           )}

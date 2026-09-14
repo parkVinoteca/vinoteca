@@ -229,9 +229,9 @@ export default function TastingSheet({ lang, user, onBack, blindSessionId, blind
 
   const ScaleRow = ({ label, hint, options, value, onChange }: any) => (
     <div className="mb-4">
-      <div className="text-xs font-medium text-gray-700 mb-0.5">{label}</div>
-      {hint && <div className="text-[10px] text-gray-400 mb-1">{hint}</div>}
-      <div className="flex border border-gray-200 overflow-hidden">
+      <div className="text-xs font-medium text-ink mb-0.5">{label}</div>
+      {hint && <div className="text-[10px] text-cave-100 mb-1">{hint}</div>}
+      <div className="flex border border-cave-400/30 overflow-hidden">
         {options.map((opt: string) => (
           <button
             key={opt}
@@ -269,7 +269,7 @@ export default function TastingSheet({ lang, user, onBack, blindSessionId, blind
           key={n}
           onClick={() => onChange(n)}
           className={`w-4 h-4 rounded-full border transition-colors ${
-            n <= value ? 'bg-wine-800 border-wine-800' : 'border-gray-300 bg-white'
+            n <= value ? 'bg-gradient-to-b from-gold-500 to-gold-600 border-gold-600' : 'border-gray-300 bg-cave-600/40'
           }`}
         />
       ))}
@@ -279,9 +279,9 @@ export default function TastingSheet({ lang, user, onBack, blindSessionId, blind
   return (
     <div className="max-w-lg mx-auto">
       {/* Header */}
-      <div className="sticky top-14 bg-parchment border-b border-gray-200 px-4 py-3 flex items-center justify-between z-40">
-        <button onClick={onBack} className="text-wine-700 text-sm">← {t.common.back}</button>
-        <div className="text-xs font-medium tracking-widest uppercase text-wine-800">
+      <div className="sticky top-14 bg-parchment border-b border-cave-400/30 px-4 py-3 flex items-center justify-between z-40">
+        <button onClick={onBack} className="text-gold-400 text-sm">← {t.common.back}</button>
+        <div className="text-xs font-medium tracking-widest uppercase text-gold-300">
           {isBlind ? `${t.blind.wine} ${blindWineNumber}` : t.tasting.normal}
         </div>
         <button
@@ -308,10 +308,10 @@ export default function TastingSheet({ lang, user, onBack, blindSessionId, blind
           />
           {labelImageUrl ? (
             <div className="relative">
-              <img src={labelImageUrl} alt="label" className="w-full max-h-64 object-contain bg-gray-50" />
+              <img src={labelImageUrl} alt="label" className="w-full max-h-64 object-contain bg-cave-600/30" />
               <button
                 onClick={() => fileRef.current?.click()}
-                className="absolute bottom-2 right-2 bg-wine-800 text-white text-xs px-3 py-1"
+                className="absolute bottom-2 right-2 bg-gradient-to-b from-gold-500 to-gold-600 text-white text-xs px-3 py-1"
               >
                 {lang === 'ja' ? '撮り直す' : '다시 찍기'}
               </button>
@@ -320,7 +320,7 @@ export default function TastingSheet({ lang, user, onBack, blindSessionId, blind
             <button
               onClick={() => fileRef.current?.click()}
               disabled={analyzing}
-              className="w-full border-2 border-dashed border-wine-200 py-10 text-center text-gray-400 hover:border-wine-400 transition-colors"
+              className="w-full border-2 border-dashed border-gold-900/30 py-10 text-center text-cave-100 hover:border-gold-500/40 transition-colors"
             >
               {analyzing ? (
                 <div>
@@ -331,7 +331,7 @@ export default function TastingSheet({ lang, user, onBack, blindSessionId, blind
                 <div>
                   <div className="text-3xl">📷</div>
                   <div className="text-xs mt-2">{t.tasting.takePhoto}</div>
-                  {!isBlind && <div className="text-[10px] text-wine-400 mt-1">AI {t.tasting.autoFilled}</div>}
+                  {!isBlind && <div className="text-[10px] text-gold-500/60 mt-1">AI {t.tasting.autoFilled}</div>}
                 </div>
               )}
             </button>
@@ -352,7 +352,7 @@ export default function TastingSheet({ lang, user, onBack, blindSessionId, blind
                 { label: t.tasting.grapeVariety, value: grapeVariety, onChange: setGrapeVariety },
               ].map(field => (
                 <div key={field.label}>
-                  <label className="text-[10px] tracking-widest uppercase text-wine-700 mb-0.5 block">{field.label}</label>
+                  <label className="text-[10px] tracking-widest uppercase text-gold-400 mb-0.5 block">{field.label}</label>
                   <input
                     type={field.type || 'text'}
                     value={field.value}
@@ -364,7 +364,7 @@ export default function TastingSheet({ lang, user, onBack, blindSessionId, blind
 
               {/* Wine Type */}
               <div>
-                <label className="text-[10px] tracking-widest uppercase text-wine-700 mb-1 block">{lang === 'ja' ? 'タイプ' : '타입'}</label>
+                <label className="text-[10px] tracking-widest uppercase text-gold-400 mb-1 block">{lang === 'ja' ? 'タイプ' : '타입'}</label>
                 <ChipGroup
                   options={Object.values(t.wineType)}
                   selected={wineType}
@@ -381,7 +381,7 @@ export default function TastingSheet({ lang, user, onBack, blindSessionId, blind
                   { label: 'JS', value: jsScore, onChange: setJsScore },
                 ].map(s => (
                   <div key={s.label}>
-                    <label className="text-[10px] tracking-widest uppercase text-wine-700 mb-0.5 block">{s.label}</label>
+                    <label className="text-[10px] tracking-widest uppercase text-gold-400 mb-0.5 block">{s.label}</label>
                     <input
                       type="number"
                       value={s.value}
@@ -411,11 +411,11 @@ export default function TastingSheet({ lang, user, onBack, blindSessionId, blind
           <div className="section-title">② {t.tasting.nose}</div>
           <ScaleRow label={t.tasting.noseIntensity} options={t.nose.intensityLevels} value={noseIntensity} onChange={setNoseIntensity} />
           <div className="mb-4">
-            <div className="text-xs font-medium text-gray-700 mb-1">{t.tasting.noseCondition}</div>
+            <div className="text-xs font-medium text-ink mb-1">{t.tasting.noseCondition}</div>
             <ChipGroup options={t.nose.conditions} selected={noseCondition} onToggle={setNoseCondition} single />
           </div>
           <div className="mb-2">
-            <div className="text-xs font-medium text-gray-700 mb-1">
+            <div className="text-xs font-medium text-ink mb-1">
               {lang === 'ja' ? '一次アロマ（果実・花・ハーブ）' : '1차 아로마 (과실·꽃·허브)'}
             </div>
             <div className="flex flex-wrap gap-1.5">
@@ -425,7 +425,7 @@ export default function TastingSheet({ lang, user, onBack, blindSessionId, blind
             </div>
           </div>
           <div className="mb-2">
-            <div className="text-xs font-medium text-gray-700 mb-1">
+            <div className="text-xs font-medium text-ink mb-1">
               {lang === 'ja' ? '二次アロマ（発酵）' : '2차 아로마 (발효)'}
             </div>
             <div className="flex flex-wrap gap-1.5">
@@ -435,7 +435,7 @@ export default function TastingSheet({ lang, user, onBack, blindSessionId, blind
             </div>
           </div>
           <div>
-            <div className="text-xs font-medium text-gray-700 mb-1">
+            <div className="text-xs font-medium text-ink mb-1">
               {lang === 'ja' ? '三次アロマ（熟成）' : '3차 아로마 (숙성)'}
             </div>
             <div className="flex flex-wrap gap-1.5">
@@ -453,7 +453,7 @@ export default function TastingSheet({ lang, user, onBack, blindSessionId, blind
           <ScaleRow label={t.tasting.acidity} hint={lang === 'ja' ? '唾液が多く出れば高い' : '침이 많이 나오면 높음'} options={t.palate.acidityLevels} value={acidity} onChange={setAcidity} />
           <ScaleRow label={t.tasting.tannin} hint={lang === 'ja' ? '歯茎の乾燥感（赤のみ）' : '잇몸 건조감 (레드만)'} options={t.palate.tanninLevels} value={tannin} onChange={setTannin} />
           <div className="mb-4">
-            <div className="text-xs font-medium text-gray-700 mb-1">{t.tasting.tanninTexture}</div>
+            <div className="text-xs font-medium text-ink mb-1">{t.tasting.tanninTexture}</div>
             <ChipGroup options={t.palate.tanninTextures} selected={tanninTexture} onToggle={setTanninTexture} single />
           </div>
           <ScaleRow label={t.tasting.alcohol} hint={lang === 'ja' ? '喉に感じる熱さ' : '목에서 느끼는 열감'} options={t.palate.alcoholLevels} value={alcohol} onChange={setAlcohol} />
@@ -464,7 +464,7 @@ export default function TastingSheet({ lang, user, onBack, blindSessionId, blind
             value={palateNotes}
             onChange={e => setPalateNotes(e.target.value)}
             placeholder={lang === 'ja' ? '味わいに関するメモ...' : '미각 관련 메모...'}
-            className="w-full border border-gray-200 p-3 text-sm resize-none h-16 focus:outline-none focus:border-wine-400 bg-white"
+            className="w-full border border-cave-400/30 p-3 text-sm resize-none h-16 focus:outline-none focus:border-gold-500/40 bg-cave-600/40"
           />
         </div>
 
@@ -481,9 +481,9 @@ export default function TastingSheet({ lang, user, onBack, blindSessionId, blind
               { key: 'C', label: lang === 'ja' ? 'Complexity 複雑さ' : 'Complexity 복잡도', val: blicC, set: setBlicC, hint: lang === 'ja' ? '層の豊かさ' : '층위의 풍성함' },
             ].map(b => (
               <div key={b.key} className="card p-3">
-                <div className="font-serif text-lg text-wine-800">{b.key}</div>
-                <div className="text-[10px] text-gray-600 font-medium">{b.label}</div>
-                <div className="text-[9px] text-gray-400 mb-2">{b.hint}</div>
+                <div className="font-serif text-lg text-gold-300">{b.key}</div>
+                <div className="text-[10px] text-cave-50 font-medium">{b.label}</div>
+                <div className="text-[9px] text-cave-100 mb-2">{b.hint}</div>
                 <BlicDots value={b.val} onChange={b.set} />
               </div>
             ))}
@@ -496,51 +496,51 @@ export default function TastingSheet({ lang, user, onBack, blindSessionId, blind
         {/* Blind Deduction */}
         {isBlind && (
           <div>
-            <div className="section-title bg-wine-900 text-white p-2 -mx-4 px-4 mb-4">
+            <div className="section-title bg-cave-700 text-white p-2 -mx-4 px-4 mb-4">
               🔍 {t.tasting.deduction}
             </div>
             <div className="space-y-4">
               <div>
-                <div className="text-xs font-medium text-gray-700 mb-1">{lang === 'ja' ? '予想タイプ' : '예상 타입'}</div>
+                <div className="text-xs font-medium text-ink mb-1">{lang === 'ja' ? '予想タイプ' : '예상 타입'}</div>
                 <ChipGroup options={t.conclusions.deductionTypes} selected={deductionType} onToggle={setDeductionType} single />
               </div>
               <div>
-                <div className="text-xs font-medium text-gray-700 mb-1">{lang === 'ja' ? '予想気候' : '예상 기후'}</div>
+                <div className="text-xs font-medium text-ink mb-1">{lang === 'ja' ? '予想気候' : '예상 기후'}</div>
                 <ChipGroup options={t.conclusions.climates} selected={deductionClimate} onToggle={setDeductionClimate} single />
               </div>
               <div>
-                <div className="text-xs font-medium text-gray-700 mb-1">{lang === 'ja' ? '予想品種' : '예상 품종'}</div>
+                <div className="text-xs font-medium text-ink mb-1">{lang === 'ja' ? '予想品種' : '예상 품종'}</div>
                 <ChipGroup options={t.conclusions.grapes} selected={deductionGrape} onToggle={setDeductionGrape} single />
               </div>
               <div>
-                <div className="text-xs font-medium text-gray-700 mb-1">{lang === 'ja' ? '予想産地' : '예상 산지'}</div>
+                <div className="text-xs font-medium text-ink mb-1">{lang === 'ja' ? '予想産地' : '예상 산지'}</div>
                 <ChipGroup options={t.conclusions.regions} selected={deductionRegion} onToggle={setDeductionRegion} single />
               </div>
               <div>
-                <div className="text-xs font-medium text-gray-700 mb-1">{lang === 'ja' ? '予想ヴィンテージ' : '예상 빈티지'}</div>
+                <div className="text-xs font-medium text-ink mb-1">{lang === 'ja' ? '予想ヴィンテージ' : '예상 빈티지'}</div>
                 <ChipGroup options={t.conclusions.vintageRanges} selected={deductionVintageRange} onToggle={setDeductionVintageRange} single />
               </div>
               <div>
-                <div className="text-xs font-medium text-gray-700 mb-1">{lang === 'ja' ? '予想価格帯' : '예상 가격대'}</div>
+                <div className="text-xs font-medium text-ink mb-1">{lang === 'ja' ? '予想価格帯' : '예상 가격대'}</div>
                 <ChipGroup options={t.conclusions.priceRanges} selected={deductionPriceRange} onToggle={setDeductionPriceRange} single />
               </div>
               <textarea
                 value={deductionNotes}
                 onChange={e => setDeductionNotes(e.target.value)}
                 placeholder={lang === 'ja' ? '推論の根拠...' : '추론 근거...'}
-                className="w-full border border-gray-200 p-3 text-sm resize-none h-16 focus:outline-none focus:border-wine-400 bg-white"
+                className="w-full border border-cave-400/30 p-3 text-sm resize-none h-16 focus:outline-none focus:border-gold-500/40 bg-cave-600/40"
               />
 
               {/* Answer */}
-              <div className="bg-wine-50 border border-wine-200 p-4">
-                <div className="text-xs font-medium text-wine-800 mb-3 tracking-widest uppercase">{t.tasting.answer}</div>
+              <div className="bg-gold-900/20 border border-gold-900/30 p-4">
+                <div className="text-xs font-medium text-gold-300 mb-3 tracking-widest uppercase">{t.tasting.answer}</div>
                 <div className="space-y-2">
                   <div>
-                    <label className="text-[10px] text-wine-600">{t.tasting.answerProducer}</label>
+                    <label className="text-[10px] text-gold-400">{t.tasting.answerProducer}</label>
                     <input value={answerProducer} onChange={e => setAnswerProducer(e.target.value)} className="input-field" />
                   </div>
                   <div>
-                    <label className="text-[10px] text-wine-600">{t.tasting.answerWine}</label>
+                    <label className="text-[10px] text-gold-400">{t.tasting.answerWine}</label>
                     <input value={answerWine} onChange={e => setAnswerWine(e.target.value)} className="input-field" />
                   </div>
                 </div>
@@ -552,9 +552,9 @@ export default function TastingSheet({ lang, user, onBack, blindSessionId, blind
         {/* Score */}
         <div>
           <div className="section-title">{t.tasting.score}</div>
-          <div className="bg-wine-800 text-white p-6 text-center">
+          <div className="bg-gradient-to-b from-gold-500 to-gold-600 text-white p-6 text-center">
             <div className="font-serif text-7xl font-bold leading-none">{score}</div>
-            <div className="text-wine-300 text-xs mt-1">/10</div>
+            <div className="text-gold-500/50 text-xs mt-1">/10</div>
             <input
               type="range" min="1" max="10" value={score}
               onChange={e => setScore(parseInt(e.target.value))}
@@ -585,7 +585,7 @@ export default function TastingSheet({ lang, user, onBack, blindSessionId, blind
             value={notes}
             onChange={e => setNotes(e.target.value)}
             placeholder={lang === 'ja' ? 'テイスティングノート...' : '테이스팅 노트...'}
-            className="w-full border border-gray-200 p-3 text-sm resize-none h-24 focus:outline-none focus:border-wine-400 bg-white font-serif italic"
+            className="w-full border border-cave-400/30 p-3 text-sm resize-none h-24 focus:outline-none focus:border-gold-500/40 bg-cave-600/40 font-serif italic"
           />
         </div>
 

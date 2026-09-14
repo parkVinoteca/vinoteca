@@ -51,30 +51,30 @@ export default function BlindMode({ lang, user, onBack }: Props) {
     return (
       <div>
         {/* Session Header */}
-        <div className="bg-wine-900 text-white px-4 py-3 flex items-center justify-between">
+        <div className="bg-cave-700 text-white px-4 py-3 flex items-center justify-between">
           <div>
             <div className="text-sm font-medium">{activeSession.title}</div>
-            <div className="text-xs text-wine-300">
+            <div className="text-xs text-gold-500/50">
               {completedWines.length}/{activeSession.wine_count} {lang === 'ja' ? '完了' : '완료'}
             </div>
           </div>
-          <button onClick={completeSession} className="text-xs border border-white/30 px-3 py-1 hover:bg-white/10">
+          <button onClick={completeSession} className="text-xs border border-white/30 px-3 py-1 hover:bg-cave-600/40/10">
             {t.blind.complete}
           </button>
         </div>
 
         {/* Wine Selector */}
-        <div className="bg-wine-800 px-4 py-2 flex gap-2 overflow-x-auto">
+        <div className="bg-gradient-to-b from-gold-500 to-gold-600 px-4 py-2 flex gap-2 overflow-x-auto">
           {Array.from({ length: activeSession.wine_count }, (_, i) => i + 1).map(n => (
             <button
               key={n}
               onClick={() => setCurrentWine(n)}
               className={`flex-shrink-0 w-10 h-10 rounded-full text-sm font-medium transition-colors ${
                 currentWine === n
-                  ? 'bg-white text-wine-800'
+                  ? 'bg-cave-600/40 text-gold-300'
                   : completedWines.includes(n)
-                    ? 'bg-wine-600 text-white'
-                    : 'border border-white/30 text-white hover:bg-wine-700'
+                    ? 'bg-gold-600 text-white'
+                    : 'border border-gold-500/30 text-ink hover:bg-cave-500/40'
               }`}
             >
               {completedWines.includes(n) ? '✓' : n}
@@ -99,12 +99,12 @@ export default function BlindMode({ lang, user, onBack }: Props) {
   if (view === 'new') {
     return (
       <div className="max-w-lg mx-auto p-4">
-        <button onClick={() => setView('list')} className="text-wine-700 text-sm mb-4">← {t.common.back}</button>
+        <button onClick={() => setView('list')} className="text-gold-400 text-sm mb-4">← {t.common.back}</button>
         <div className="section-title">{t.blind.newSession}</div>
 
         <div className="card p-6 space-y-4">
           <div>
-            <label className="text-[10px] tracking-widest uppercase text-wine-700 mb-1 block">{t.blind.sessionTitle}</label>
+            <label className="text-[10px] tracking-widest uppercase text-gold-400 mb-1 block">{t.blind.sessionTitle}</label>
             <input
               value={sessionTitle}
               onChange={e => setSessionTitle(e.target.value)}
@@ -113,7 +113,7 @@ export default function BlindMode({ lang, user, onBack }: Props) {
             />
           </div>
           <div>
-            <label className="text-[10px] tracking-widest uppercase text-wine-700 mb-2 block">
+            <label className="text-[10px] tracking-widest uppercase text-gold-400 mb-2 block">
               {t.blind.wineCount}: {wineCount}
             </label>
             <div className="flex gap-2">
@@ -122,7 +122,7 @@ export default function BlindMode({ lang, user, onBack }: Props) {
                   key={n}
                   onClick={() => setWineCount(n)}
                   className={`w-9 h-9 text-sm border transition-colors ${
-                    wineCount === n ? 'bg-wine-800 text-white border-wine-800' : 'border-gray-200 text-gray-500 hover:border-wine-400'
+                    wineCount === n ? 'bg-gradient-to-b from-gold-500 to-gold-600 text-white border-gold-600' : 'border-cave-400/30 text-cave-100 hover:border-gold-500/40'
                   }`}
                 >
                   {n}
@@ -146,7 +146,7 @@ export default function BlindMode({ lang, user, onBack }: Props) {
       </div>
 
       {sessions.length === 0 ? (
-        <div className="text-center py-16 text-gray-400">
+        <div className="text-center py-16 text-cave-100">
           <div className="text-4xl mb-3">🎭</div>
           <div className="text-sm">{lang === 'ja' ? 'セッションがありません' : '세션이 없습니다'}</div>
           <button onClick={() => setView('new')} className="mt-4 btn-secondary py-2 px-6 text-xs">
@@ -160,13 +160,13 @@ export default function BlindMode({ lang, user, onBack }: Props) {
               <div className="flex items-start justify-between">
                 <div>
                   <div className="font-medium text-sm">{s.title}</div>
-                  <div className="text-xs text-gray-400 mt-0.5">
+                  <div className="text-xs text-cave-100 mt-0.5">
                     {s.wine_count}{lang === 'ja' ? '本' : '병'} ·{' '}
                     {new Date(s.created_at).toLocaleDateString(lang === 'ja' ? 'ja-JP' : 'ko-KR')}
                   </div>
                 </div>
                 <div className={`text-xs px-2 py-0.5 ${
-                  s.status === 'active' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'
+                  s.status === 'active' ? 'bg-green-100 text-green-700' : 'bg-cave-600/50 text-cave-100'
                 }`}>
                   {s.status === 'active'
                     ? (lang === 'ja' ? '進行中' : '진행 중')

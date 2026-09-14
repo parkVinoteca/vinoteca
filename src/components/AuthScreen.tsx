@@ -50,46 +50,64 @@ export default function AuthScreen({ lang, onLangChange }: Props) {
   }
 
   return (
-    <div className="min-h-screen bg-parchment flex flex-col">
+    <div className="min-h-screen bg-parchment flex flex-col relative overflow-hidden">
+      {/* Ambient glow */}
+      <div className="pointer-events-none absolute inset-0 overflow-hidden">
+        <div className="absolute -top-40 -left-20 w-96 h-96 rounded-full bg-gold-700/10 blur-3xl" />
+        <div className="absolute top-1/3 -right-20 w-80 h-80 rounded-full bg-gold-600/5 blur-3xl" />
+      </div>
+
       {/* Header */}
-      <div className="bg-wine-800 px-4 py-3 flex justify-between items-center">
-        <div className="font-serif text-xl text-white tracking-wider">Vinoteca</div>
+      <div className="relative px-5 py-4 flex justify-between items-center border-b border-gold-900/20">
+        <div className="font-serif italic text-xl text-gold-300 tracking-wider">Vinoteca</div>
         <button
           onClick={() => onLangChange(lang === 'ja' ? 'ko' : 'ja')}
-          className="text-xs border border-white/30 text-white px-2 py-1 rounded-sm"
+          className="text-xs border border-gold-700/40 text-gold-200 px-3 py-1.5 rounded-full hover:bg-gold-900/20 hover:border-gold-500/60 transition-colors"
         >
           {lang === 'ja' ? '🇰🇷 한국어' : '🇯🇵 日本語'}
         </button>
       </div>
 
-      {/* Hero */}
-      <div className="bg-wine-900 text-white text-center py-16 px-6">
-        <div className="font-serif text-5xl mb-3 tracking-wide">Vinoteca</div>
-        <div className="text-wine-200 text-sm tracking-widest uppercase">{t.app.tagline}</div>
-        <div className="mt-6 text-wine-300 text-xs">
+      {/* Hero — Cave Note style */}
+      <div className="relative text-center pt-16 pb-14 px-6">
+        <div className="inline-block mb-6">
+          <div className="text-[10px] tracking-[0.5em] text-gold-500/70 uppercase mb-3">Vinoteca</div>
+          <div className="font-serif italic text-5xl md:text-6xl text-gold-200 leading-tight text-gold-glow">
+            {lang === 'ja' ? (
+              <>飲んだ一本を<br />忘れない</>
+            ) : (
+              <>마신 한 병을<br />기억하다</>
+            )}
+          </div>
+        </div>
+        <div className="text-cave-100 text-xs md:text-sm tracking-wide max-w-xs mx-auto leading-relaxed">
           {lang === 'ja'
-            ? 'あなたのワイン体験を記録・分析・共有'
-            : '당신의 와인 경험을 기록·분석·공유'}
+            ? 'ラベルを撮るだけで、造り手・銘柄・ヴィンテージまでAIが読み取る'
+            : '라벨을 찍기만 하면 AI가 생산자·품종·빈티지까지 읽어줍니다'}
         </div>
       </div>
 
       {/* Auth Form */}
-      <div className="flex-1 p-6 max-w-md mx-auto w-full">
-        <div className="card p-6 mt-6">
+      <div className="relative flex-1 px-6 pb-10 max-w-md mx-auto w-full">
+        <div className="card p-6">
           {/* Mode Toggle */}
-          <div className="flex border border-gray-200 mb-6">
+          <div className="flex border border-gold-900/30 rounded-full p-1 mb-6 bg-cave-700/50">
             <button
               onClick={() => setMode('signin')}
-              className={`flex-1 py-2 text-xs tracking-widest uppercase transition-colors ${
-                mode === 'signin' ? 'bg-wine-800 text-white' : 'text-gray-400 hover:text-gray-700'
+              className={`flex-1 py-2 text-xs tracking-widest uppercase rounded-full transition-all ${
+                mode === 'signin'
+                  ? 'bg-gradient-to-b from-gold-500 to-gold-600 text-cave-900 font-medium'
+                  : 'text-cave-100 hover:text-gold-200'
               }`}
             >
               {lang === 'ja' ? 'ログイン' : '로그인'}
             </button>
             <button
               onClick={() => setMode('signup')}
-              className={`flex-1 py-2 text-xs tracking-widest uppercase transition-colors ${
-                mode === 'signup' ? 'bg-wine-800 text-white' : 'text-gray-400 hover:text-gray-700'
+              className={`flex-1 py-2 text-xs tracking-widest uppercase rounded-full transition-all ${
+                mode === 'signup'
+                  ? 'bg-gradient-to-b from-gold-500 to-gold-600 text-cave-900 font-medium'
+                  : 'text-cave-100 hover:text-gold-200'
               }`}
             >
               {lang === 'ja' ? '新規登録' : '회원가입'}
@@ -98,7 +116,7 @@ export default function AuthScreen({ lang, onLangChange }: Props) {
 
           <div className="space-y-4">
             <div>
-              <label className="text-xs tracking-widest uppercase text-wine-700 mb-1 block">
+              <label className="text-[10px] tracking-[0.2em] uppercase text-gold-500 mb-1 block">
                 {lang === 'ja' ? 'メールアドレス' : '이메일'}
               </label>
               <input
@@ -110,7 +128,7 @@ export default function AuthScreen({ lang, onLangChange }: Props) {
               />
             </div>
             <div>
-              <label className="text-xs tracking-widest uppercase text-wine-700 mb-1 block">
+              <label className="text-[10px] tracking-[0.2em] uppercase text-gold-500 mb-1 block">
                 {lang === 'ja' ? 'パスワード' : '비밀번호'}
               </label>
               <input
@@ -124,7 +142,7 @@ export default function AuthScreen({ lang, onLangChange }: Props) {
             </div>
 
             {message && (
-              <div className="text-xs text-wine-700 bg-wine-50 p-3 border border-wine-200">
+              <div className="text-xs text-gold-200 bg-gold-900/20 p-3 border border-gold-700/30 rounded">
                 {message}
               </div>
             )}
@@ -144,18 +162,18 @@ export default function AuthScreen({ lang, onLangChange }: Props) {
 
             {/* Divider */}
             <div className="flex items-center gap-3 py-1">
-              <div className="flex-1 h-px bg-gray-200" />
-              <span className="text-[10px] text-gray-400 tracking-widest uppercase">
+              <div className="flex-1 h-px bg-gold-900/30" />
+              <span className="text-[10px] text-cave-100 tracking-widest uppercase">
                 {lang === 'ja' ? 'または' : '또는'}
               </span>
-              <div className="flex-1 h-px bg-gray-200" />
+              <div className="flex-1 h-px bg-gold-900/30" />
             </div>
 
             {/* Google Login */}
             <button
               onClick={handleGoogleLogin}
               disabled={loading}
-              className="w-full flex items-center justify-center gap-3 border border-gray-300 bg-white py-3 px-6 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors disabled:opacity-50"
+              className="w-full flex items-center justify-center gap-3 border border-cave-300/30 bg-cave-600/40 py-3 px-6 text-sm font-medium text-ink hover:bg-cave-500/40 hover:border-gold-500/40 transition-colors disabled:opacity-50 rounded"
             >
               <svg width="18" height="18" viewBox="0 0 18 18">
                 <path fill="#4285F4" d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.717v2.258h2.908c1.702-1.567 2.684-3.874 2.684-6.615z"/>
@@ -176,11 +194,19 @@ export default function AuthScreen({ lang, onLangChange }: Props) {
             { icon: '📚', ja: 'ワインセラー', ko: '와인 저장고' },
             { icon: '🤖', ja: 'AI取向分析', ko: 'AI 취향 분석' },
           ].map((f, i) => (
-            <div key={i} className="card p-3 text-center">
-              <div className="text-2xl mb-1">{f.icon}</div>
-              <div className="text-xs text-gray-500">{lang === 'ja' ? f.ja : f.ko}</div>
+            <div key={i} className="card p-4 text-center">
+              <div className="text-2xl mb-1.5">{f.icon}</div>
+              <div className="text-xs text-cave-100">{lang === 'ja' ? f.ja : f.ko}</div>
             </div>
           ))}
+        </div>
+
+        {/* Footer tagline like Cave Note */}
+        <div className="mt-10 text-center">
+          <div className="font-serif italic text-gold-500/60 text-sm tracking-widest">CAVE · VINOTECA</div>
+          <div className="text-[9px] text-cave-200 tracking-[0.2em] uppercase mt-1">
+            {lang === 'ja' ? 'ワイン記録アプリ・無料' : '와인 기록 앱 · 무료'}
+          </div>
         </div>
       </div>
     </div>
