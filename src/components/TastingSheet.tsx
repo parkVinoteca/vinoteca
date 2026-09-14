@@ -15,6 +15,7 @@ interface Props {
 export default function TastingSheet({ lang, user, onBack, blindSessionId, blindWineNumber }: Props) {
   const t = translations[lang]
   const fileRef = useRef<HTMLInputElement>(null)
+  const uploadRef = useRef<HTMLInputElement>(null)
 
   // State
   const [labelImageUrl, setLabelImageUrl] = useState('')
@@ -126,8 +127,13 @@ export default function TastingSheet({ lang, user, onBack, blindSessionId, blind
                 }]
               })
             })
+            if (!res.ok) {
+              const errText = await res.text()
+              console.error('Gemini API error:', res.status, errText)
+              return
+            }
             const data = await res.json()
-            const text = data.candidates?.[0]?.content?.parts?.[0]?.text || ''
+            const text = data.candidates?.[0]?.content?.parts?.map((p: any) => p.text).filter(Boolean).join('') || ''
             const jsonMatch = text.match(/\{[\s\S]*\}/)
             if (jsonMatch) {
               const info = JSON.parse(jsonMatch[0])
@@ -138,6 +144,8 @@ export default function TastingSheet({ lang, user, onBack, blindSessionId, blind
               if (info.country) setCountry(info.country)
               if (info.grapeVariety) setGrapeVariety(info.grapeVariety)
               if (info.wineType) setWineType(info.wineType)
+            } else {
+              console.error('No JSON found in Gemini response text:', text)
             }
           } catch (e) { console.error('AI analysis failed:', e) }
         }
@@ -306,35 +314,54 @@ export default function TastingSheet({ lang, user, onBack, blindSessionId, blind
             className="hidden"
             onChange={e => e.target.files?.[0] && handlePhotoUpload(e.target.files[0])}
           />
+          <input
+            ref={uploadRef}
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={e => e.target.files?.[0] && handlePhotoUpload(e.target.files[0])}
+          />
           {labelImageUrl ? (
             <div className="relative">
               <img src={labelImageUrl} alt="label" className="w-full max-h-64 object-contain bg-cave-600/30" />
-              <button
-                onClick={() => fileRef.current?.click()}
-                className="absolute bottom-2 right-2 bg-gradient-to-b from-gold-500 to-gold-600 text-white text-xs px-3 py-1"
-              >
-                {lang === 'ja' ? '撮り直す' : '다시 찍기'}
-              </button>
+              <div className="absolute bottom-2 right-2 flex gap-2">
+                <button
+                  onClick={() => fileRef.current?.click()}
+                  className="bg-gradient-to-b from-gold-500 to-gold-600 text-white text-xs px-3 py-1"
+                >
+                  {lang === 'ja' ? '撮り直す' : '다시 찍기'}
+                </button>
+                <button
+                  onClick={() => uploadRef.current?.click()}
+                  className="bg-cave-600/80 border border-gold-500/40 text-gold-200 text-xs px-3 py-1"
+                >
+                  {lang === 'ja' ? 'アップロード' : '업로드'}
+                </button>
+              </div>
+            </div>
+          ) : analyzing ? (
+            <div className="w-full border-2 border-dashed border-gold-900/30 py-10 text-center text-cave-100">
+              <div className="text-2xl animate-pulse">🔍</div>
+              <div className="text-xs mt-2">{t.tasting.analyzing}</div>
             </div>
           ) : (
-            <button
-              onClick={() => fileRef.current?.click()}
-              disabled={analyzing}
-              className="w-full border-2 border-dashed border-gold-900/30 py-10 text-center text-cave-100 hover:border-gold-500/40 transition-colors"
-            >
-              {analyzing ? (
-                <div>
-                  <div className="text-2xl animate-pulse">🔍</div>
-                  <div className="text-xs mt-2">{t.tasting.analyzing}</div>
-                </div>
-              ) : (
-                <div>
-                  <div className="text-3xl">📷</div>
-                  <div className="text-xs mt-2">{t.tasting.takePhoto}</div>
-                  {!isBlind && <div className="text-[10px] text-gold-500/60 mt-1">AI {t.tasting.autoFilled}</div>}
-                </div>
-              )}
-            </button>
+            <div className="grid grid-cols-2 gap-3">
+              <button
+                onClick={() => fileRef.current?.click()}
+                className="border-2 border-dashed border-gold-900/30 py-8 text-center text-cave-100 hover:border-gold-500/40 transition-colors"
+              >
+                <div className="text-2xl mb-1">📷</div>
+                <div className="text-xs">{t.tasting.takePhoto}</div>
+                {!isBlind && <div className="text-[9px] text-gold-500/60 mt-1">AI {t.tasting.autoFilled}</div>}
+              </button>
+              <button
+                onClick={() => uploadRef.current?.click()}
+                className="border-2 border-dashed border-gold-900/30 py-8 text-center text-cave-100 hover:border-gold-500/40 transition-colors"
+              >
+                <div className="text-2xl mb-1">🖼️</div>
+                <div className="text-xs">{lang === 'ja' ? 'アップロード' : '업로드'}</div>
+              </button>
+            </div>
           )}
         </div>
 

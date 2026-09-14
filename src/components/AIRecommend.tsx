@@ -9,6 +9,7 @@ interface Props { lang: Language; user: User; onBack: () => void }
 export default function AIRecommend({ lang, user, onBack }: Props) {
   const t = translations[lang]
   const fileRef = useRef<HTMLInputElement>(null)
+  const uploadRef = useRef<HTMLInputElement>(null)
   const [imageUrl, setImageUrl] = useState('')
   const [analyzing, setAnalyzing] = useState(false)
   const [result, setResult] = useState<any>(null)
@@ -155,13 +156,20 @@ export default function AIRecommend({ lang, user, onBack }: Props) {
           )
 
           if (!res.ok) {
-            throw new Error('API request failed')
+            const errBody = await res.text()
+            console.error('Gemini API error response:', res.status, errBody)
+            throw new Error(`API ${res.status}: ${errBody.slice(0, 200)}`)
           }
 
           const data = await res.json()
-          const text = data.candidates?.[0]?.content?.parts?.map((p: any) => p.text).join('') || ''
+          console.log('Gemini API response:', data)
+
+          const text = data.candidates?.[0]?.content?.parts?.map((p: any) => p.text).filter(Boolean).join('') || ''
           const jsonMatch = text.match(/\{[\s\S]*\}/)
-          if (!jsonMatch) throw new Error('No valid JSON in response')
+          if (!jsonMatch) {
+            console.error('No JSON found in text:', text)
+            throw new Error('No valid JSON in response')
+          }
 
           const info = JSON.parse(jsonMatch[0])
           setResult(info)
@@ -171,9 +179,12 @@ export default function AIRecommend({ lang, user, onBack }: Props) {
 
           await supabase.from('ai_usage_logs').insert({ user_id: user.id, feature: 'sommelier' })
           setUsageThisMonth(prev => prev + 1)
-        } catch (e) {
+        } catch (e: any) {
           console.error('Analysis failed:', e)
-          setError(lang === 'ja' ? '解析に失敗しました。もう一度お試しください。' : '분석에 실패했습니다. 다시 시도해주세요.')
+          setError(
+            (lang === 'ja' ? '解析に失敗しました: ' : '분석에 실패했습니다: ') +
+            (e?.message || (lang === 'ja' ? '不明なエラー' : '알 수 없는 오류'))
+          )
         } finally {
           setAnalyzing(false)
         }
@@ -235,27 +246,42 @@ export default function AIRecommend({ lang, user, onBack }: Props) {
         className="hidden"
         onChange={e => e.target.files?.[0] && analyzeWine(e.target.files[0])}
       />
+      <input
+        ref={uploadRef}
+        type="file"
+        accept="image/*"
+        className="hidden"
+        onChange={e => e.target.files?.[0] && analyzeWine(e.target.files[0])}
+      />
 
-      <button
-        onClick={() => fileRef.current?.click()}
-        disabled={analyzing}
-        className="w-full border-2 border-dashed border-gold-900/40 py-10 text-center text-cave-100 hover:border-gold-500/50 transition-colors mb-4 rounded-lg"
-      >
-        {analyzing ? (
-          <div>
-            <div className="text-3xl animate-pulse">🔍</div>
-            <div className="text-sm mt-2 text-gold-200">{lang === 'ja' ? 'AIが調査中...' : 'AI가 조사 중...'}</div>
-            <div className="text-[10px] text-cave-200 mt-1">
-              {lang === 'ja' ? 'ブレンド比率・価格をWeb検索しています' : '블렌딩 비율·가격을 검색 중입니다'}
-            </div>
+      <div className="grid grid-cols-2 gap-3 mb-4">
+        <button
+          onClick={() => fileRef.current?.click()}
+          disabled={analyzing}
+          className="border-2 border-dashed border-gold-900/40 py-8 text-center text-cave-100 hover:border-gold-500/50 transition-colors rounded-lg disabled:opacity-50"
+        >
+          <div className="text-2xl mb-1">📷</div>
+          <div className="text-xs">{lang === 'ja' ? '撮影' : '촬영'}</div>
+        </button>
+        <button
+          onClick={() => uploadRef.current?.click()}
+          disabled={analyzing}
+          className="border-2 border-dashed border-gold-900/40 py-8 text-center text-cave-100 hover:border-gold-500/50 transition-colors rounded-lg disabled:opacity-50"
+        >
+          <div className="text-2xl mb-1">🖼️</div>
+          <div className="text-xs">{lang === 'ja' ? 'アップロード' : '업로드'}</div>
+        </button>
+      </div>
+
+      {analyzing && (
+        <div className="text-center mb-4">
+          <div className="text-3xl animate-pulse">🔍</div>
+          <div className="text-sm mt-2 text-gold-200">{lang === 'ja' ? 'AIが調査中...' : 'AI가 조사 중...'}</div>
+          <div className="text-[10px] text-cave-200 mt-1">
+            {lang === 'ja' ? 'ブレンド比率・価格をWeb検索しています' : '블렌딩 비율·가격을 검색 중입니다'}
           </div>
-        ) : (
-          <div>
-            <div className="text-3xl">📷</div>
-            <div className="text-sm mt-2">{t.recommend.upload}</div>
-          </div>
-        )}
-      </button>
+        </div>
+      )}
 
       {error && (
         <div className="text-xs text-red-300 bg-red-900/20 border border-red-800/40 p-3 rounded mb-4">
