@@ -20,7 +20,6 @@ export default function AIRecommend({ lang, user, onBack }: Props) {
   useEffect(() => { loadStats() }, [])
 
   const loadStats = async () => {
-    // 레드/화이트 평가 병 수 확인
     const { data: tastings } = await supabase
       .from('tastings')
       .select('wine_type')
@@ -34,7 +33,6 @@ export default function AIRecommend({ lang, user, onBack }: Props) {
       setWhiteCount(tastings.filter(t => isWhite(t.wine_type)).length)
     }
 
-    // 이번 달 소믈리에 사용 횟수
     const startOfMonth = new Date()
     startOfMonth.setDate(1)
     startOfMonth.setHours(0, 0, 0, 0)
@@ -54,50 +52,127 @@ export default function AIRecommend({ lang, user, onBack }: Props) {
     setResult(null)
     setError('')
     try {
-      // 취향 히스토리 수집 (매칭용)
       const { data: history } = await supabase
         .from('tastings')
         .select('wine_name, producer, country, grape_variety, score, body, tannin, acidity, wine_type')
         .eq('user_id', user.id)
         .not('score', 'is', null)
         .order('score', { ascending: false })
-        .limit(20)
+        .limit(15)
+
+      const canMatch = redCount >= 10 && whiteCount >= 10
 
       const reader = new FileReader()
       reader.onloadend = async () => {
         const base64 = (reader.result as string).split(',')[1]
 
+        const matchInstructionJa = canMatch
+          ? `ユーザーの過去の評価データ（赤${redCount}本、白${whiteCount}本、上位15件）: ${JSON.stringify(history)}\nこのデータと比較して相性スコア(0-100)を算出してください。`
+          : `ユーザーの評価本数が不足しています（赤${redCount}/10本、白${whiteCount}/10本必要）。matchScoreはnullとし、matchReasonには「記録を増やすとより正確な相性診断ができます（あと赤${Math.max(0,10-redCount)}本・白${Math.max(0,10-whiteCount)}本）」と入れてください。`
+
+        const matchInstructionKo = canMatch
+          ? `사용자의 과거 평가 데이터 (레드 ${redCount}병, 화이트 ${whiteCount}병, 상위 15건): ${JSON.stringify(history)}\n이 데이터와 비교해서 취향 일치도(0-100)를 산출해주세요.`
+          : `사용자의 평가 병수가 부족합니다 (레드 ${redCount}/10병, 화이트 ${whiteCount}/10병 필요). matchScore는 null로 하고, matchReason에는 "기록이 쌓이면 더 정확한 취향 진단이 가능합니다 (레드 ${Math.max(0,10-redCount)}병・화이트 ${Math.max(0,10-whiteCount)}병 더 필요)"라고 넣어주세요.`
+
+        const prompt = lang === 'ja'
+          ? `このワインラベルの写真を分析してください。Google検索を積極的に使い、以下を正確に調査してください：
+
+1. ラベルから読み取れる基本情報（生産者、ワイン名、ヴィンテージ、産地、品種）
+2. 【重要・必須検索】このワインの正確なヴィンテージ別ブレンド比率。生産者の公式サイト、Vivino、Wine-Searcherを検索して特定してください。ラベルの記載だけでなく、必ずWeb検索で裏付けを取ってください。
+3. 【重要・必須検索】参考価格。まず日本国内のショップ（エノテカ、テラダワイン等）を検索し円で提示。国内情報がなければ海外相場をドルで検索して提示してください。
+4. ${matchInstructionJa}
+
+必ずGoogle検索ツールを使用し、実際の検索結果に基づいて回答してください。不明な項目は「不明」としてください。
+
+回答は以下のJSON形式のみで、他のテキストは含めないでください:
+{
+  "wineName": "ワイン名",
+  "producer": "生産者",
+  "vintage": "ヴィンテージ",
+  "region": "産地",
+  "country": "国",
+  "wineType": "red/white/rose/sparkling",
+  "blendRatio": "品種構成（例: CS 60%, メルロー 30%, CF 10%）",
+  "blendSource": "情報の出典",
+  "description": "ワインの特徴（2-3文）",
+  "characteristics": ["特徴1", "特徴2", "特徴3"],
+  "priceJPY": "国内参考価格（円）または null",
+  "priceJPYSource": "出典サイト名 または null",
+  "priceUSD": "海外参考価格（ドル、国内情報がない場合のみ）または null",
+  "priceUSDSource": "出典サイト名 または null",
+  "expertScore": "専門家評価（あれば）",
+  "matchScore": ${canMatch ? '数値(0-100)' : 'null'},
+  "matchReason": "相性診断の理由、または本数不足メッセージ",
+  "recommendedFor": "おすすめのシーン・料理"
+}`
+          : `이 와인 라벨 사진을 분석해주세요. Google 검색을 적극 활용해서 다음을 정확히 조사해주세요:
+
+1. 라벨에서 읽을 수 있는 기본 정보 (생산자, 와인명, 빈티지, 산지, 품종)
+2. 【중요・필수 검색】이 와인의 정확한 빈티지별 블렌딩 비율. 생산자 공식 사이트, Vivino, Wine-Searcher를 검색해서 찾아주세요. 라벨 표기뿐 아니라 반드시 웹 검색으로 근거를 확인해주세요.
+3. 【중요・필수 검색】참고 가격. 먼저 국내 쇼핑몰을 검색해서 원화로 제시. 국내 정보가 없으면 해외 시세를 달러로 검색해서 제시해주세요.
+4. ${matchInstructionKo}
+
+반드시 Google 검색 도구를 사용하고, 실제 검색 결과에 기반해서 답해주세요. 모르는 항목은 "불명"으로 표기하세요.
+
+답변은 아래 JSON 형식으로만, 다른 텍스트는 포함하지 마세요:
+{
+  "wineName": "와인 이름",
+  "producer": "생산자",
+  "vintage": "빈티지",
+  "region": "산지",
+  "country": "나라",
+  "wineType": "red/white/rose/sparkling",
+  "blendRatio": "품종 구성 (예: CS 60%, 메를로 30%, CF 10%)",
+  "blendSource": "정보 출처",
+  "description": "와인 특징 (2-3문장)",
+  "characteristics": ["특징1", "특징2", "특징3"],
+  "priceJPY": "국내 참고가격 (원화) 또는 null",
+  "priceJPYSource": "출처 사이트명 또는 null",
+  "priceUSD": "해외 참고가격 (달러, 국내 정보 없을 때만) 또는 null",
+  "priceUSDSource": "출처 사이트명 또는 null",
+  "expertScore": "전문가 평가 (있으면)",
+  "matchScore": ${canMatch ? '숫자(0-100)' : 'null'},
+  "matchReason": "취향 진단 이유 또는 병수 부족 메시지",
+  "recommendedFor": "추천 상황・음식"
+}`
+
         try {
-          const res = await fetch('/api/sommelier', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              imageBase64: base64,
-              imageMediaType: file.type,
-              lang,
-              userStats: { redCount, whiteCount, history },
-            }),
-          })
+          const res = await fetch(
+            `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key=${process.env.NEXT_PUBLIC_GEMINI_API_KEY}`,
+            {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                contents: [{
+                  parts: [
+                    { text: prompt },
+                    { inlineData: { mimeType: file.type, data: base64 } },
+                  ],
+                }],
+                tools: [{ google_search: {} }],
+              }),
+            }
+          )
 
           if (!res.ok) {
-            const errData = await res.json()
-            throw new Error(errData.error || 'Analysis failed')
+            throw new Error('API request failed')
           }
 
-          const { result: analysisResult } = await res.json()
-          setResult(analysisResult)
+          const data = await res.json()
+          const text = data.candidates?.[0]?.content?.parts?.map((p: any) => p.text).join('') || ''
+          const jsonMatch = text.match(/\{[\s\S]*\}/)
+          if (!jsonMatch) throw new Error('No valid JSON in response')
+
+          const info = JSON.parse(jsonMatch[0])
+          setResult(info)
 
           const objUrl = URL.createObjectURL(file)
           setImageUrl(objUrl)
 
-          // 사용 로그 기록
-          await supabase.from('ai_usage_logs').insert({
-            user_id: user.id,
-            feature: 'sommelier',
-          })
+          await supabase.from('ai_usage_logs').insert({ user_id: user.id, feature: 'sommelier' })
           setUsageThisMonth(prev => prev + 1)
-        } catch (e: any) {
-          console.error(e)
+        } catch (e) {
+          console.error('Analysis failed:', e)
           setError(lang === 'ja' ? '解析に失敗しました。もう一度お試しください。' : '분석에 실패했습니다. 다시 시도해주세요.')
         } finally {
           setAnalyzing(false)
@@ -124,7 +199,6 @@ export default function AIRecommend({ lang, user, onBack }: Props) {
       <div className="text-sm text-gold-200 mb-1">{t.recommend.subtitle}</div>
       <div className="text-[11px] text-cave-200 mb-4">💡 {t.recommend.infoOnly}</div>
 
-      {/* Match progress indicator */}
       {!canMatch && (
         <div className="card p-3 mb-4">
           <div className="text-[10px] text-gold-400 tracking-widest uppercase mb-2">
@@ -195,7 +269,6 @@ export default function AIRecommend({ lang, user, onBack }: Props) {
             <img src={imageUrl} alt="" className="w-full max-h-48 object-contain bg-cave-700/30 rounded" />
           )}
 
-          {/* Wine Info */}
           <div className="card p-4">
             <div className="font-serif italic text-xl text-gold-200">{result.wineName}</div>
             {result.producer && <div className="text-sm text-cave-100">{result.producer}</div>}
@@ -209,7 +282,6 @@ export default function AIRecommend({ lang, user, onBack }: Props) {
             )}
           </div>
 
-          {/* Blend Ratio */}
           {result.blendRatio && (
             <div className="card p-4">
               <div className="text-[10px] tracking-widest uppercase text-gold-400 mb-2">
@@ -224,7 +296,6 @@ export default function AIRecommend({ lang, user, onBack }: Props) {
             </div>
           )}
 
-          {/* Price */}
           {(result.priceJPY || result.priceUSD) && (
             <div className="card p-4">
               <div className="text-[10px] tracking-widest uppercase text-gold-400 mb-2">
@@ -249,7 +320,6 @@ export default function AIRecommend({ lang, user, onBack }: Props) {
             </div>
           )}
 
-          {/* Match Score */}
           <div className="card p-4">
             <div className="text-xs font-medium text-ink mb-3">{t.recommend.match}</div>
             {result.matchScore !== null && result.matchScore !== undefined ? (
@@ -275,7 +345,6 @@ export default function AIRecommend({ lang, user, onBack }: Props) {
             )}
           </div>
 
-          {/* Description */}
           {result.description && (
             <div className="card p-4">
               <div className="text-xs font-medium text-ink mb-2">
@@ -308,7 +377,6 @@ export default function AIRecommend({ lang, user, onBack }: Props) {
         </div>
       )}
 
-      {/* Usage this month */}
       <div className="mt-6 text-center text-[10px] text-cave-200">
         {lang === 'ja' ? `今月の利用回数: ${usageThisMonth}回` : `이번 달 사용 횟수: ${usageThisMonth}회`}
       </div>
