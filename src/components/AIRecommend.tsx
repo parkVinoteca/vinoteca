@@ -3,6 +3,7 @@ import { useState, useRef, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import { translations, Language } from '@/i18n'
 import { calculateTasteProfile, calculateMatchScore, buildMatchReason, TastingRecord } from '@/lib/tastePofile'
+import ImageCropModal from './ImageCropModal'
 import type { User } from '@supabase/supabase-js'
 
 interface Props { lang: Language; user: User; onBack: () => void }
@@ -18,6 +19,7 @@ export default function AIRecommend({ lang, user, onBack }: Props) {
   const [redCount, setRedCount] = useState(0)
   const [whiteCount, setWhiteCount] = useState(0)
   const [usageThisMonth, setUsageThisMonth] = useState(0)
+  const [cropFile, setCropFile] = useState<File | null>(null)
 
   useEffect(() => { loadStats() }, [])
 
@@ -49,7 +51,7 @@ export default function AIRecommend({ lang, user, onBack }: Props) {
     setUsageThisMonth(count || 0)
   }
 
-  const analyzeWine = async (file: File) => {
+  const analyzeWine = async (cropped: { base64: string; mediaType: string }) => {
     setAnalyzing(true)
     setResult(null)
     setError('')
@@ -70,72 +72,69 @@ export default function AIRecommend({ lang, user, onBack }: Props) {
         }
       }
 
-      const reader = new FileReader()
-      reader.onloadend = async () => {
-        const base64 = (reader.result as string).split(',')[1]
+      try {
+        const res = await fetch('/api/sommelier', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            imageBase64: cropped.base64,
+            imageMediaType: cropped.mediaType,
+            lang,
+          }),
+        })
 
-        try {
-          const res = await fetch('/api/sommelier', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              imageBase64: base64,
-              imageMediaType: file.type,
-              lang,
-            }),
-          })
-
-          if (!res.ok) {
-            const errData = await res.json()
-            throw new Error(errData.error || 'Analysis failed')
-          }
-
-          const { result: aiResult } = await res.json()
-
-          // 매칭 점수는 코드가 직접 계산 (AI 재호출 없음, 무료, 즉시)
-          let finalResult: any = { ...aiResult, matchScore: null, matchReason: '' }
-
-          if (canMatch && tasteProfile && aiResult.bodyLevel !== undefined) {
-            const matchResult = calculateMatchScore(tasteProfile, {
-              body: aiResult.bodyLevel,
-              tannin: aiResult.tanninLevel,
-              acidity: aiResult.acidityLevel,
-              alcohol: aiResult.alcoholLevel,
-              grape: aiResult.grapeVariety,
-              region: aiResult.region,
-              country: aiResult.country,
-            })
-            finalResult.matchScore = matchResult.score
-            finalResult.matchReason = buildMatchReason(lang, matchResult)
-          } else {
-            finalResult.matchReason = lang === 'ja'
-              ? `記録が不足しています（赤${redCount}/10本、白${whiteCount}/10本必要）。記録を増やすとより正確な相性診断ができます。`
-              : `기록이 부족합니다 (레드 ${redCount}/10병, 화이트 ${whiteCount}/10병 필요). 기록이 쌓이면 더 정확한 취향 진단이 가능합니다.`
-          }
-
-          setResult(finalResult)
-
-          const objUrl = URL.createObjectURL(file)
-          setImageUrl(objUrl)
-
-          await supabase.from('ai_usage_logs').insert({ user_id: user.id, feature: 'sommelier' })
-          setUsageThisMonth(prev => prev + 1)
-        } catch (e: any) {
-          console.error('Analysis failed:', e)
-          setError(
-            (lang === 'ja' ? '解析に失敗しました: ' : '분석에 실패했습니다: ') +
-            (e?.message || (lang === 'ja' ? '不明なエラー' : '알 수 없는 오류'))
-          )
-        } finally {
-          setAnalyzing(false)
+        if (!res.ok) {
+          const errData = await res.json()
+          throw new Error(errData.error || 'Analysis failed')
         }
+
+        const { result: aiResult } = await res.json()
+
+        // 매칭 점수는 코드가 직접 계산 (AI 재호출 없음, 무료, 즉시)
+        let finalResult: any = { ...aiResult, matchScore: null, matchReason: '' }
+
+        if (canMatch && tasteProfile && aiResult.bodyLevel !== undefined) {
+          const matchResult = calculateMatchScore(tasteProfile, {
+            body: aiResult.bodyLevel,
+            tannin: aiResult.tanninLevel,
+            acidity: aiResult.acidityLevel,
+            alcohol: aiResult.alcoholLevel,
+            grape: aiResult.grapeVariety,
+            region: aiResult.region,
+            country: aiResult.country,
+          })
+          finalResult.matchScore = matchResult.score
+          finalResult.matchReason = buildMatchReason(lang, matchResult)
+        } else {
+          finalResult.matchReason = lang === 'ja'
+            ? `記録が不足しています（赤${redCount}/10本、白${whiteCount}/10本必要）。記録を増やすとより正確な相性診断ができます。`
+            : `기록이 부족합니다 (레드 ${redCount}/10병, 화이트 ${whiteCount}/10병 필요). 기록이 쌓이면 더 정확한 취향 진단이 가능합니다.`
+        }
+
+        setResult(finalResult)
+        setImageUrl(`data:${cropped.mediaType};base64,${cropped.base64}`)
+
+        await supabase.from('ai_usage_logs').insert({ user_id: user.id, feature: 'sommelier' })
+        setUsageThisMonth(prev => prev + 1)
+      } catch (e: any) {
+        console.error('Analysis failed:', e)
+        setError(
+          (lang === 'ja' ? '解析に失敗しました: ' : '분석에 실패했습니다: ') +
+          (e?.message || (lang === 'ja' ? '不明なエラー' : '알 수 없는 오류'))
+        )
+      } finally {
+        setAnalyzing(false)
       }
-      reader.readAsDataURL(file)
     } catch (e) {
       console.error(e)
       setAnalyzing(false)
       setError(t.common.error)
     }
+  }
+
+  const handleCropConfirm = (cropped: { base64: string; mediaType: string }) => {
+    setCropFile(null)
+    analyzeWine(cropped)
   }
 
   const matchColor = (score: number) =>
@@ -180,9 +179,18 @@ export default function AIRecommend({ lang, user, onBack }: Props) {
       )}
 
       <input ref={fileRef} type="file" accept="image/*" capture="environment" className="hidden"
-        onChange={e => e.target.files?.[0] && analyzeWine(e.target.files[0])} />
+        onChange={e => e.target.files?.[0] && setCropFile(e.target.files[0])} />
       <input ref={uploadRef} type="file" accept="image/*" className="hidden"
-        onChange={e => e.target.files?.[0] && analyzeWine(e.target.files[0])} />
+        onChange={e => e.target.files?.[0] && setCropFile(e.target.files[0])} />
+
+      {cropFile && (
+        <ImageCropModal
+          file={cropFile}
+          lang={lang}
+          onConfirm={handleCropConfirm}
+          onCancel={() => setCropFile(null)}
+        />
+      )}
 
       <div className="grid grid-cols-2 gap-3 mb-4">
         <button onClick={() => fileRef.current?.click()} disabled={analyzing}

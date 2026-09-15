@@ -1,6 +1,7 @@
 'use client'
 import { useState, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
+import { resizeImage } from '@/lib/imageProcessing'
 import { translations, Language } from '@/i18n'
 import type { User } from '@supabase/supabase-js'
 
@@ -101,58 +102,54 @@ export default function TastingSheet({ lang, user, onBack, blindSessionId, blind
 
       // Analyze with Gemini Vision (only in normal mode)
       if (!isBlind) {
-        const reader = new FileReader()
-        reader.onloadend = async () => {
-          const base64 = (reader.result as string).split(',')[1]
-          try {
-            const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent`, {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                'X-goog-api-key': process.env.NEXT_PUBLIC_GEMINI_API_KEY!,
-              },
-              body: JSON.stringify({
-                contents: [{
-                  parts: [
-                    { text: `This is a wine label. Please extract the following information and respond ONLY in valid JSON format with these exact keys:
-                    {
-                      "wineName": "wine name or cuvee name",
-                      "producer": "producer/chateau/winery name",
-                      "vintage": "year as number or null",
-                      "region": "specific region/appellation",
-                      "country": "country",
-                      "grapeVariety": "grape varieties if visible",
-                      "wineType": "red or white or rose or sparkling or sweet"
-                    }
-                    If information is not visible on the label, use null. Do not include any text outside the JSON.` },
-                    { inlineData: { mimeType: file.type, data: base64 } }
-                  ]
-                }]
-              })
+        try {
+          const { base64, mediaType } = await resizeImage(file, 1024, 0.85)
+          const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'X-goog-api-key': process.env.NEXT_PUBLIC_GEMINI_API_KEY!,
+            },
+            body: JSON.stringify({
+              contents: [{
+                parts: [
+                  { text: `This is a wine label. Please extract the following information and respond ONLY in valid JSON format with these exact keys:
+                  {
+                    "wineName": "wine name or cuvee name",
+                    "producer": "producer/chateau/winery name",
+                    "vintage": "year as number or null",
+                    "region": "specific region/appellation",
+                    "country": "country",
+                    "grapeVariety": "grape varieties if visible",
+                    "wineType": "red or white or rose or sparkling or sweet"
+                  }
+                  If information is not visible on the label, use null. Do not include any text outside the JSON.` },
+                  { inlineData: { mimeType: mediaType, data: base64 } }
+                ]
+              }]
             })
-            if (!res.ok) {
-              const errText = await res.text()
-              console.error('Gemini API error:', res.status, errText)
-              return
-            }
-            const data = await res.json()
-            const text = data.candidates?.[0]?.content?.parts?.map((p: any) => p.text).filter(Boolean).join('') || ''
-            const jsonMatch = text.match(/\{[\s\S]*\}/)
-            if (jsonMatch) {
-              const info = JSON.parse(jsonMatch[0])
-              if (info.wineName) setWineName(info.wineName)
-              if (info.producer) setProducer(info.producer)
-              if (info.vintage) setVintage(String(info.vintage))
-              if (info.region) setRegion(info.region)
-              if (info.country) setCountry(info.country)
-              if (info.grapeVariety) setGrapeVariety(info.grapeVariety)
-              if (info.wineType) setWineType(info.wineType)
-            } else {
-              console.error('No JSON found in Gemini response text:', text)
-            }
-          } catch (e) { console.error('AI analysis failed:', e) }
-        }
-        reader.readAsDataURL(file)
+          })
+          if (!res.ok) {
+            const errText = await res.text()
+            console.error('Gemini API error:', res.status, errText)
+            return
+          }
+          const data = await res.json()
+          const text = data.candidates?.[0]?.content?.parts?.map((p: any) => p.text).filter(Boolean).join('') || ''
+          const jsonMatch = text.match(/\{[\s\S]*\}/)
+          if (jsonMatch) {
+            const info = JSON.parse(jsonMatch[0])
+            if (info.wineName) setWineName(info.wineName)
+            if (info.producer) setProducer(info.producer)
+            if (info.vintage) setVintage(String(info.vintage))
+            if (info.region) setRegion(info.region)
+            if (info.country) setCountry(info.country)
+            if (info.grapeVariety) setGrapeVariety(info.grapeVariety)
+            if (info.wineType) setWineType(info.wineType)
+          } else {
+            console.error('No JSON found in Gemini response text:', text)
+          }
+        } catch (e) { console.error('AI analysis failed:', e) }
       }
     } catch (e) {
       console.error('Upload failed:', e)
