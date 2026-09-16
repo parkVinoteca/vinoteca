@@ -1,3 +1,13 @@
+-- blind_sessions 테이블
+create table blind_sessions (
+  id uuid default gen_random_uuid() primary key,
+  user_id uuid references auth.users(id) on delete cascade not null,
+  title text not null,
+  wine_count int not null default 1,
+  status text check (status in ('active', 'completed')) default 'active',
+  created_at timestamp with time zone default now()
+);
+
 -- tastings 테이블
 create table tastings (
   id uuid default gen_random_uuid() primary key,
@@ -45,22 +55,13 @@ create table tastings (
   answer_wine text,
   score int,
   stars int,
+  palate_notes text,
   notes text,
   food_pairing text[],
   ws_score int,
   wa_score int,
   js_score int,
   language text default 'ja',
-  created_at timestamp with time zone default now()
-);
-
--- blind_sessions 테이블
-create table blind_sessions (
-  id uuid default gen_random_uuid() primary key,
-  user_id uuid references auth.users(id) on delete cascade not null,
-  title text not null,
-  wine_count int not null default 1,
-  status text check (status in ('active', 'completed')) default 'active',
   created_at timestamp with time zone default now()
 );
 
@@ -76,10 +77,10 @@ create policy "Users can manage own sessions" on blind_sessions
   for all using (auth.uid() = user_id);
 
 -- Storage 버킷
-insert into storage.buckets (id, name, public) values ('label-images', 'label-images', true);
+insert into storage.buckets (id, name, public) values ('label-images', 'label-images', false);
 
 create policy "Users can upload label images" on storage.objects
   for insert with check (bucket_id = 'label-images' and auth.uid()::text = (storage.foldername(name))[1]);
 
-create policy "Label images are public" on storage.objects
-  for select using (bucket_id = 'label-images');
+create policy "Users can view own label images" on storage.objects
+  for select to authenticated using (bucket_id = 'label-images' and auth.uid()::text = (storage.foldername(name))[1]);

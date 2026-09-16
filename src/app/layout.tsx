@@ -1,13 +1,15 @@
-import type { Metadata } from 'next'
+import type { Metadata, Viewport } from 'next'
 import './globals.css'
 
 export const metadata: Metadata = {
   title: 'Vinoteca',
   description: 'ワインテイスティング記録アプリ',
   manifest: '/manifest.json',
-  themeColor: '#0A0A0F',
-  viewport: 'width=device-width, initial-scale=1, maximum-scale=1',
+  appleWebApp: { capable: true, title: 'Vinoteca', statusBarStyle: 'black-translucent' },
+  icons: { apple: '/apple-touch-icon.png' },
 }
+
+export const viewport: Viewport = { width: 'device-width', initialScale: 1, themeColor: '#0A0A0F' }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (

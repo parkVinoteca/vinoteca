@@ -1,12 +1,13 @@
 'use client'
 import { useState, useEffect } from 'react'
-import { supabase } from '@/lib/supabase'
+import { supabase, isSupabaseConfigured } from '@/lib/supabase'
 import { translations, Language } from '@/i18n'
 import HomeScreen from '@/components/HomeScreen'
 import TastingSheet from '@/components/TastingSheet'
 import BlindMode from '@/components/BlindMode'
 import MyCellar from '@/components/MyCellar'
 import AIRecommend from '@/components/AIRecommend'
+import RecoverPassword from '@/components/RecoverPassword'
 import AuthScreen from '@/components/AuthScreen'
 import type { User } from '@supabase/supabase-js'
 
@@ -14,17 +15,33 @@ export type Screen = 'home' | 'tasting' | 'blind' | 'cellar' | 'recommend'
 
 export default function App() {
   const [user, setUser] = useState<User | null>(null)
+  const [recovering, setRecovering] = useState(false)
   const [loading, setLoading] = useState(true)
   const [screen, setScreen] = useState<Screen>('home')
   const [lang, setLang] = useState<Language>('ja')
+  const [authError, setAuthError] = useState(false)
+  const [languageReady, setLanguageReady] = useState(false)
   const t = translations[lang]
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    try { const saved = localStorage.getItem('vinoteca-language'); if (saved === 'ja' || saved === 'ko') setLang(saved) } catch {}
+    setLanguageReady(true)
+    if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(() => {})
+  }, [])
+  useEffect(() => {
+    if (!languageReady) return
+    document.documentElement.lang = lang
+    try { localStorage.setItem('vinoteca-language', lang) } catch {}
+  }, [lang, languageReady])
+
+  useEffect(() => {
+    if (!isSupabaseConfigured) { setAuthError(true); setLoading(false); return }
+    supabase.auth.getSession().then(({ data: { session }, error }) => {
+      if (error) setAuthError(true)
       setUser(session?.user ?? null)
-      setLoading(false)
-    })
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    }).catch(() => setAuthError(true)).finally(() => setLoading(false))
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'PASSWORD_RECOVERY') setRecovering(true)
       setUser(session?.user ?? null)
     })
     return () => subscription.unsubscribe()
@@ -38,6 +55,10 @@ export default function App() {
       </div>
     </div>
   )
+
+  if (authError) return <main className="min-h-screen grid place-items-center p-6"><div role="alert"><p>{lang === 'ja' ? 'サービスに接続できません。しばらくしてから再度お試しください。' : '서비스에 연결하지 못했습니다. 잠시 후 다시 시도해주세요.'}</p><button className="btn-primary mt-4" onClick={() => window.location.reload()}>{lang === 'ja' ? '再読み込み' : '다시 불러오기'}</button></div></main>
+
+  if (recovering) return <RecoverPassword lang={lang} onDone={() => { setRecovering(false); setScreen('home') }} />
 
   if (!user) return <AuthScreen lang={lang} onLangChange={setLang} />
 
@@ -56,10 +77,10 @@ export default function App() {
             {lang === 'ja' ? '🇰🇷 한국어' : '🇯🇵 日本語'}
           </button>
           <button
-            onClick={() => supabase.auth.signOut()}
+            onClick={async () => { const { error } = await supabase.auth.signOut(); if (error) setAuthError(true) }}
             className="text-xs text-cave-100 hover:text-gold-300 transition-colors"
           >
-            ログアウト
+            {lang === 'ja' ? 'ログアウト' : '로그아웃'}
           </button>
         </div>
       </header>

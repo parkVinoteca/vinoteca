@@ -1,7 +1,8 @@
 'use client'
 import { useState, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
-import { resizeImage } from '@/lib/imageProcessing'
+import { analyzeImage } from '@/lib/aiClient'
+import ImageCropModal from './ImageCropModal'
 import { translations, Language } from '@/i18n'
 import type { User } from '@supabase/supabase-js'
 
@@ -11,14 +12,19 @@ interface Props {
   onBack: () => void
   blindSessionId?: string
   blindWineNumber?: number
+  onSaved?: () => void
 }
 
-export default function TastingSheet({ lang, user, onBack, blindSessionId, blindWineNumber }: Props) {
+export default function TastingSheet({ lang, user, onBack, blindSessionId, blindWineNumber, onSaved }: Props) {
   const t = translations[lang]
   const fileRef = useRef<HTMLInputElement>(null)
   const uploadRef = useRef<HTMLInputElement>(null)
 
   // State
+  const [message, setMessage] = useState('')
+  const [cropFile, setCropFile] = useState<File | null>(null)
+  const saveLock = useRef(false)
+  const [labelPath, setLabelPath] = useState('')
   const [labelImageUrl, setLabelImageUrl] = useState('')
   const [analyzing, setAnalyzing] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -44,7 +50,7 @@ export default function TastingSheet({ lang, user, onBack, blindSessionId, blind
 
   // Nose
   const [noseIntensity, setNoseIntensity] = useState('')
-  const [noseCondition, setNoseCondition] = useState('クリーン')
+  const [noseCondition, setNoseCondition] = useState(t.nose.conditions[0])
   const [aromas, setAromas] = useState<string[]>([])
 
   // Palate
@@ -84,78 +90,36 @@ export default function TastingSheet({ lang, user, onBack, blindSessionId, blind
   const isBlind = !!blindSessionId
 
   const handlePhotoUpload = async (file: File) => {
-    setAnalyzing(true)
-    try {
-      // Upload to Supabase Storage
-      const fileName = `${user.id}/${Date.now()}-${file.name}`
-      const { data: uploadData, error: uploadError } = await supabase.storage
-        .from('label-images')
-        .upload(fileName, file)
-
-      if (uploadError) throw uploadError
-
-      const { data: { publicUrl } } = supabase.storage
-        .from('label-images')
-        .getPublicUrl(fileName)
-
-      setLabelImageUrl(publicUrl)
-
-      // Analyze with Gemini Vision (only in normal mode)
-      if (!isBlind) {
-        try {
-          const { base64, mediaType } = await resizeImage(file, 1024, 0.85)
-          const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'X-goog-api-key': process.env.NEXT_PUBLIC_GEMINI_API_KEY!,
-            },
-            body: JSON.stringify({
-              contents: [{
-                parts: [
-                  { text: `This is a wine label. Please extract the following information and respond ONLY in valid JSON format with these exact keys:
-                  {
-                    "wineName": "wine name or cuvee name",
-                    "producer": "producer/chateau/winery name",
-                    "vintage": "year as number or null",
-                    "region": "specific region/appellation",
-                    "country": "country",
-                    "grapeVariety": "grape varieties if visible",
-                    "wineType": "red or white or rose or sparkling or sweet"
-                  }
-                  If information is not visible on the label, use null. Do not include any text outside the JSON.` },
-                  { inlineData: { mimeType: mediaType, data: base64 } }
-                ]
-              }]
-            })
-          })
-          if (!res.ok) {
-            const errText = await res.text()
-            console.error('Gemini API error:', res.status, errText)
-            return
-          }
-          const data = await res.json()
-          const text = data.candidates?.[0]?.content?.parts?.map((p: any) => p.text).filter(Boolean).join('') || ''
-          const jsonMatch = text.match(/\{[\s\S]*\}/)
-          if (jsonMatch) {
-            const info = JSON.parse(jsonMatch[0])
-            if (info.wineName) setWineName(info.wineName)
-            if (info.producer) setProducer(info.producer)
-            if (info.vintage) setVintage(String(info.vintage))
-            if (info.region) setRegion(info.region)
-            if (info.country) setCountry(info.country)
-            if (info.grapeVariety) setGrapeVariety(info.grapeVariety)
-            if (info.wineType) setWineType(info.wineType)
-          } else {
-            console.error('No JSON found in Gemini response text:', text)
-          }
-        } catch (e) { console.error('AI analysis failed:', e) }
-      }
-    } catch (e) {
-      console.error('Upload failed:', e)
-    } finally {
-      setAnalyzing(false)
+    if (!file.type.startsWith('image/') || file.size > 20 * 1024 * 1024) {
+      setMessage(lang === 'ja' ? '20MB以下の画像を選択してください。' : '20MB 이하 이미지를 선택해주세요.'); return
     }
+    setCropFile(file)
+  }
+  const savePhoto = async (image: { base64: string; mediaType: string }) => {
+    setCropFile(null)
+    setAnalyzing(true)
+    setMessage('')
+    try {
+      // Canvas output strips metadata and uploads only the selected label region.
+      const bytes = Uint8Array.from(atob(image.base64), c => c.charCodeAt(0))
+      const fileName = `${user.id}/${crypto.randomUUID()}.jpg`
+      const { error } = await supabase.storage.from('label-images').upload(fileName, new Blob([bytes], { type: image.mediaType }), { contentType: image.mediaType })
+      if (error) throw new Error(lang === 'ja' ? '写真を保存できませんでした。再度お試しください。' : '사진을 저장하지 못했습니다. 다시 시도해주세요.')
+      setLabelPath(fileName)
+      setLabelImageUrl(`data:${image.mediaType};base64,${image.base64}`)
+      if (!isBlind) {
+        const info = await analyzeImage('label', image, lang)
+        if (info.wineName) setWineName(info.wineName)
+        if (info.producer) setProducer(info.producer)
+        if (info.vintage && /^\d{4}$/.test(info.vintage)) setVintage(info.vintage)
+        if (info.region) setRegion(info.region)
+        if (info.country) setCountry(info.country)
+        if (info.grapeVariety) setGrapeVariety(info.grapeVariety)
+        if (info.wineType) setWineType(info.wineType)
+      }
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : t.common.error)
+    } finally { setAnalyzing(false) }
   }
 
   const toggleAroma = (aroma: string) => {
@@ -167,7 +131,10 @@ export default function TastingSheet({ lang, user, onBack, blindSessionId, blind
   }
 
   const handleSave = async () => {
+    if (saveLock.current || analyzing) return
+    saveLock.current = true
     setSaving(true)
+    setMessage('')
     try {
       const { error } = await supabase.from('tastings').insert({
         user_id: user.id,
@@ -180,8 +147,8 @@ export default function TastingSheet({ lang, user, onBack, blindSessionId, blind
         region: isBlind ? null : region || null,
         country: isBlind ? null : country || null,
         grape_variety: isBlind ? null : grapeVariety || null,
-        wine_type: wineType || null,
-        label_image_url: labelImageUrl || null,
+        wine_type: (wineType || null) as 'red' | 'white' | 'rose' | 'sparkling' | 'sweet' | null,
+        label_image_url: labelPath || null,
         color_hue: colorHue || null,
         color_depth: colorDepth || null,
         clarity: clarity || null,
@@ -214,6 +181,7 @@ export default function TastingSheet({ lang, user, onBack, blindSessionId, blind
         answer_wine: isBlind ? answerWine || null : null,
         score: score || null,
         stars: stars || null,
+        palate_notes: palateNotes || null,
         notes: notes || null,
         food_pairing: foodPairing.length > 0 ? foodPairing : null,
         ws_score: wsScore ? parseInt(wsScore) : null,
@@ -225,13 +193,13 @@ export default function TastingSheet({ lang, user, onBack, blindSessionId, blind
       setSaved(true)
       setTimeout(() => {
         setSaved(false)
-        onBack()
+        if (onSaved) onSaved(); else onBack()
       }, 1500)
     } catch (e) {
-      console.error('Save failed:', e)
-      alert(t.common.error)
+      setMessage(t.common.error)
     } finally {
       setSaving(false)
+      saveLock.current = false
     }
   }
 
@@ -275,6 +243,8 @@ export default function TastingSheet({ lang, user, onBack, blindSessionId, blind
       {[1,2,3,4,5].map(n => (
         <button
           key={n}
+          aria-label={`${n} / 5`}
+          aria-pressed={n === value}
           onClick={() => onChange(n)}
           className={`w-4 h-4 rounded-full border transition-colors ${
             n <= value ? 'bg-gradient-to-b from-gold-500 to-gold-600 border-gold-600' : 'border-gray-300 bg-cave-600/40'
@@ -286,6 +256,8 @@ export default function TastingSheet({ lang, user, onBack, blindSessionId, blind
 
   return (
     <div className="max-w-lg mx-auto">
+      {message && <p role="alert" className="card p-3 mb-3 text-sm">{message}</p>}
+      {cropFile && <ImageCropModal file={cropFile} lang={lang} onCancel={() => setCropFile(null)} onConfirm={savePhoto} />}
       {/* Header */}
       <div className="sticky top-14 bg-parchment border-b border-cave-400/30 px-4 py-3 flex items-center justify-between z-40">
         <button onClick={onBack} className="text-gold-400 text-sm">← {t.common.back}</button>
@@ -294,7 +266,7 @@ export default function TastingSheet({ lang, user, onBack, blindSessionId, blind
         </div>
         <button
           onClick={handleSave}
-          disabled={saving || saved}
+          disabled={saving || saved || analyzing}
           className="btn-primary py-1.5 px-4 text-[10px]"
         >
           {saved ? '✓' : saving ? '...' : t.tasting.save}
@@ -622,7 +594,7 @@ export default function TastingSheet({ lang, user, onBack, blindSessionId, blind
         </div>
 
         {/* Save Button */}
-        <button onClick={handleSave} disabled={saving || saved} className="btn-primary w-full py-4 text-sm">
+        <button onClick={handleSave} disabled={saving || saved || analyzing} className="btn-primary w-full py-4 text-sm">
           {saved ? `✓ ${t.tasting.saved}` : saving ? t.tasting.saving : t.tasting.save}
         </button>
 

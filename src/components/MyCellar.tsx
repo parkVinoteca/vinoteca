@@ -2,12 +2,14 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import { translations, Language } from '@/i18n'
+import { resolveLabelImage, labelImagePath } from '@/lib/labelImages'
 import type { User } from '@supabase/supabase-js'
 
 interface Props { lang: Language; user: User; onBack: () => void }
 
 export default function MyCellar({ lang, user, onBack }: Props) {
   const t = translations[lang]
+  const [error, setError] = useState('')
   const [tastings, setTastings] = useState<any[]>([])
   const [filtered, setFiltered] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
@@ -19,7 +21,7 @@ export default function MyCellar({ lang, user, onBack }: Props) {
   const [grapes, setGrapes] = useState<string[]>([])
   const [selected, setSelected] = useState<any>(null)
 
-  useEffect(() => { loadTastings() }, [])
+  useEffect(() => { loadTastings().catch(() => { setError(t.common.error); setLoading(false) }) }, [user.id])
 
   useEffect(() => {
     let data = [...tastings]
@@ -32,9 +34,16 @@ export default function MyCellar({ lang, user, onBack }: Props) {
   }, [tastings, filterCountry, filterGrape, filterType, sortBy])
 
   const loadTastings = async () => {
-    const { data } = await supabase.from('tastings').select('*').eq('user_id', user.id).order('created_at', { ascending: false })
+    setError('')
+    const data: any[] = []
+    for (let from = 0; ; from += 500) {
+      const { data: page, error } = await supabase.from('tastings').select('*').eq('user_id', user.id).order('created_at', { ascending: false }).order('id').range(from, from + 499)
+      if (error) { setError(t.common.error); setLoading(false); return }
+      data.push(...(page || [])); if (!page || page.length < 500) break
+    }
     if (data) {
-      setTastings(data)
+      const resolved = await Promise.all(data.map(async row => ({ ...row, image_url: await resolveLabelImage(row.label_image_url, user.id) })))
+      setTastings(resolved)
       setCountries([...new Set(data.map(d => d.country).filter(Boolean))] as string[])
       setGrapes([...new Set(data.map(d => d.grape_variety).filter(Boolean))] as string[])
     }
@@ -43,21 +52,28 @@ export default function MyCellar({ lang, user, onBack }: Props) {
 
   const deleteTasting = async (id: string) => {
     if (!confirm(lang === 'ja' ? '削除しますか？' : '삭제하시겠습니까?')) return
-    await supabase.from('tastings').delete().eq('id', id)
+    const imagePath = selected?.label_image_url ? labelImagePath(selected.label_image_url, user.id) : null
+    const { error } = await supabase.from('tastings').delete().eq('id', id).eq('user_id', user.id)
+    if (error) { setError(t.common.error); return }
     setSelected(null)
-    loadTastings()
+    await loadTastings()
+    if (imagePath) {
+      const { error: imageError } = await supabase.storage.from('label-images').remove([imagePath])
+      if (imageError) setError(lang === 'ja' ? '記録を削除しましたが、写真の削除に失敗しました。' : '기록은 삭제했지만 사진을 삭제하지 못했습니다.')
+    }
   }
 
   if (selected) {
     return (
       <div className="max-w-lg mx-auto">
+        {error && <p role="alert" className="card p-3">{error}</p>}
         <div className="sticky top-14 bg-parchment border-b border-cave-400/30 px-4 py-3 flex items-center justify-between z-40">
           <button onClick={() => setSelected(null)} className="text-gold-400 text-sm">← {t.common.back}</button>
-          <button onClick={() => deleteTasting(selected.id)} className="text-red-500 text-xs">{t.common.delete}</button>
+          <button onClick={() => deleteTasting(selected.id).catch(() => setError(t.common.error))} className="text-red-500 text-xs">{t.common.delete}</button>
         </div>
         <div className="p-4">
-          {selected.label_image_url && (
-            <img src={selected.label_image_url} alt="" className="w-full max-h-64 object-contain bg-cave-600/30 mb-4" />
+          {selected.image_url && (
+            <img src={selected.image_url} alt="" className="w-full max-h-64 object-contain bg-cave-600/30 mb-4" />
           )}
           <div className="card p-4 mb-4">
             <div className="font-serif text-xl text-gold-300 mb-1">{selected.wine_name || selected.producer || '—'}</div>
@@ -82,6 +98,7 @@ export default function MyCellar({ lang, user, onBack }: Props) {
             </div>
           )}
 
+          {selected.palate_notes && <div className="card p-3 mb-3"><h3 className="text-sm">{lang === 'ja' ? '味わいのメモ' : '입안에서 느낀 메모'}</h3><p className="text-sm whitespace-pre-wrap">{selected.palate_notes}</p></div>}
           {/* My Score */}
           {selected.score && (
             <div className="bg-gradient-to-b from-gold-500 to-gold-600 text-white p-4 text-center mb-3">
@@ -146,6 +163,7 @@ export default function MyCellar({ lang, user, onBack }: Props) {
 
   return (
     <div className="max-w-lg mx-auto p-4">
+      {error && <p role="alert" className="card p-3">{error}</p>}
       <div className="flex items-center justify-between mb-4">
         <div>
           <div className="section-title mb-0">{t.cellar.title}</div>
@@ -186,8 +204,8 @@ export default function MyCellar({ lang, user, onBack }: Props) {
         <div className="space-y-2">
           {filtered.map(tasting => (
             <button key={tasting.id} onClick={() => setSelected(tasting)} className="w-full card p-3 flex items-center gap-3 hover:bg-gold-900/20 transition-colors text-left">
-              {tasting.label_image_url ? (
-                <img src={tasting.label_image_url} alt="" className="w-10 h-14 object-cover flex-shrink-0" />
+              {tasting.image_url ? (
+                <img src={tasting.image_url} alt="" className="w-10 h-14 object-cover flex-shrink-0" />
               ) : (
                 <div className="w-10 h-14 bg-cave-500/40 flex items-center justify-center text-gold-500/50 flex-shrink-0">🍷</div>
               )}
