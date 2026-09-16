@@ -5,6 +5,8 @@ export class ApiError extends Error {
 }
 export function failure(error: unknown) {
   const e = error instanceof ApiError ? error : new ApiError('temporarily_unavailable', 503)
+  // Only stable internal codes: never log tokens, images, provider messages or user data.
+  if (e.status >= 500) console.error('[ai_failure]', e.code)
   return Response.json({ error: e.code }, { status: e.status, headers: { 'Cache-Control': 'no-store', ...(e.status === 429 ? { 'Retry-After': '60' } : {}) } })
 }
 export async function authorize(req: Request) {
@@ -56,13 +58,26 @@ export async function reserveUsage(client: Awaited<ReturnType<typeof authorize>>
   if (data !== true) throw new ApiError('usage_limit', 429)
 }
 export async function providerFetch(url: string, init: RequestInit) {
+  const provider = url.includes('googleapis.com') ? 'gemini' : 'claude'
   try {
     const response = await fetch(url, { ...init, signal: AbortSignal.timeout(40000), cache: 'no-store' })
-    if (!response.ok) throw new ApiError(response.status === 429 ? 'provider_busy' : 'analysis_failed', 502)
+    if (!response.ok) {
+      const body = await response.json().catch(() => null)
+      // Classify in memory; provider text may contain secrets, so never return or log it.
+      const message = typeof body?.error?.message === 'string' ? body.error.message : ''
+      let code = 'provider_request_failed'
+      if (response.status === 401 || response.status === 403 || /API.key.not.valid|invalid.*api.key|API_KEY_INVALID/i.test(message)) code = 'provider_auth_failed'
+      else if (/credit balance|billing|payment|insufficient.*credit/i.test(message) || response.status === 402) code = 'provider_billing'
+      else if (response.status === 429) code = 'provider_busy'
+      else if (response.status === 404) code = 'provider_model_unavailable'
+      console.error('[ai_provider]', JSON.stringify({ provider, status: response.status, code }))
+      throw new ApiError(code, 502)
+    }
     return await response.json()
   } catch (error) {
     if (error instanceof ApiError) throw error
-    throw new ApiError('analysis_failed', 502)
+    const timeout = error instanceof Error && ['TimeoutError', 'AbortError'].includes(error.name)
+    throw new ApiError(timeout ? 'provider_timeout' : 'provider_unavailable', 502)
   }
 }
 export function parseResult(text: unknown) {

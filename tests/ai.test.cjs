@@ -47,6 +47,16 @@ test('Rate rejection prevents any paid provider call', async () => {
   assert.equal(handler.counts().calls, 0)
 })
 test('Provider errors do not leak upstream response details', async () => {
-  const isolated = load('src/lib/server/ai.ts', { fetch: async () => ({ ok: false, status: 401, text: async () => 'sensitive provider details' }) })
-  try { await isolated.providerFetch('https://example.com', {}) } catch (e) { assert.equal(await isolated.failure(e).text(), '{"error":"analysis_failed"}') }
+  const isolated = load('src/lib/server/ai.ts', { fetch: async () => ({ ok: false, status: 401, json: async () => ({ error: { message: 'sensitive provider details' } }) }) })
+  try { await isolated.providerFetch('https://example.com', {}) } catch (e) { assert.equal(await isolated.failure(e).text(), '{"error":"provider_auth_failed"}') }
+})
+
+test('Provider failures distinguish credentials, credit, quota and model without exposing details', async () => {
+  for (const [status, message, code] of [[400,'API key not valid. SECRET','provider_auth_failed'],[400,'Your credit balance is too low. SECRET','provider_billing'],[429,'SECRET','provider_busy'],[404,'SECRET','provider_model_unavailable']]) {
+    const logs=[]
+    const isolated=load('src/lib/server/ai.ts', {console: {error: (...args)=>logs.push(args.join(' '))},fetch:async()=>({ok:false,status,json:async()=>({error:{message}})})})
+    await assert.rejects(isolated.providerFetch('https://api.anthropic.com/v1/messages',{}),e=>e.code===code)
+    assert.equal(logs.join('').includes('SECRET'),false)
+    assert.ok(logs.join('').includes(code))
+  }
 })
