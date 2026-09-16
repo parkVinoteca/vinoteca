@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import { translations, Language } from '@/i18n'
 import { Screen } from '@/app/page'
+import { resolveLabelImage } from '@/lib/labelImages'
 import type { User } from '@supabase/supabase-js'
 
 interface Props {
@@ -14,19 +15,24 @@ interface Props {
 export default function HomeScreen({ lang, user, onNavigate }: Props) {
   const t = translations[lang]
   const [stats, setStats] = useState({ total: 0, avgScore: 0, topCountry: '-', recentWine: '-' })
+  const [error, setError] = useState('')
   const [recentTastings, setRecentTastings] = useState<any[]>([])
 
   useEffect(() => {
-    loadData()
+    loadData().catch(() => setError(t.common.error))
   }, [user])
 
   const loadData = async () => {
-    const { data } = await supabase
-      .from('tastings')
-      .select('*')
-      .eq('user_id', user.id)
-      .order('created_at', { ascending: false })
-      .limit(5)
+    setError('')
+    const data: any[] = []
+    for (let from = 0; ; from += 500) {
+      const { data: page, error } = await supabase.from('tastings')
+        .select('id, wine_name, producer, country, score, created_at, wine_type, vintage, label_image_url')
+        .eq('user_id', user.id).order('created_at', { ascending: false }).order('id').range(from, from + 499)
+      if (error) { setError(t.common.error); return }
+      data.push(...(page || []))
+      if (!page || page.length < 500) break
+    }
 
     if (data && data.length > 0) {
       const all = data
@@ -45,12 +51,13 @@ export default function HomeScreen({ lang, user, onNavigate }: Props) {
         topCountry,
         recentWine: all[0]?.wine_name || all[0]?.producer || '-',
       })
-      setRecentTastings(all)
+      setRecentTastings(await Promise.all(all.slice(0, 5).map(async row => ({ ...row, image_url: await resolveLabelImage(row.label_image_url, user.id) }))))
     }
   }
 
   return (
     <div className="p-4 max-w-lg mx-auto">
+      {error && <p role="alert" className="card p-3">{error}</p>}
       {/* Welcome */}
       <div className="py-6">
         <div className="text-xs text-cave-100 tracking-widest uppercase mb-1">
@@ -63,7 +70,7 @@ export default function HomeScreen({ lang, user, onNavigate }: Props) {
       {/* Stats Grid */}
       <div className="grid grid-cols-2 gap-3 mb-6">
         {[
-          { label: lang === 'ja' ? '記録数' : '기록 수', value: `${stats.total}本`, icon: '🍷' },
+          { label: lang === 'ja' ? '記録数' : '기록 수', value: `${stats.total}${lang === 'ja' ? '本' : '병'}`, icon: '🍷' },
           { label: lang === 'ja' ? '平均スコア' : '평균 점수', value: stats.avgScore || '-', icon: '⭐' },
           { label: lang === 'ja' ? 'よく飲む国' : '자주 마시는 나라', value: stats.topCountry, icon: '🌍' },
           { label: lang === 'ja' ? '最近のワイン' : '최근 와인', value: stats.recentWine.length > 10 ? stats.recentWine.slice(0, 10) + '...' : stats.recentWine, icon: '📝' },
@@ -128,8 +135,8 @@ export default function HomeScreen({ lang, user, onNavigate }: Props) {
           <div className="space-y-2">
             {recentTastings.slice(0, 3).map(tasting => (
               <div key={tasting.id} className="card p-3 flex items-center gap-3">
-                {tasting.label_image_url ? (
-                  <img src={tasting.label_image_url} alt="" className="w-10 h-14 object-cover" />
+                {tasting.image_url ? (
+                  <img src={tasting.image_url} alt="" className="w-10 h-14 object-cover" />
                 ) : (
                   <div className="w-10 h-14 bg-cave-500/40 flex items-center justify-center text-gold-500/60 text-xl">🍷</div>
                 )}

@@ -12,28 +12,36 @@ export default function AuthScreen({ lang, onLangChange }: Props) {
   const t = translations[lang]
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const [mode, setMode] = useState<'signin' | 'signup'>('signin')
+  const [mode, setMode] = useState<'signin' | 'signup' | 'reset'>('signin')
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState('')
 
   const handleAuth = async () => {
+    if (loading) return
     setLoading(true)
     setMessage('')
     try {
-      if (mode === 'signin') {
+      if (mode === 'reset') {
+        const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo: window.location.origin })
+        if (error) throw error
+        setMessage(lang === 'ja' ? '登録されている場合、再設定メールが届きます。' : '등록된 이메일이면 재설정 메일이 발송됩니다.')
+      } else if (mode === 'signin') {
         const { error } = await supabase.auth.signInWithPassword({ email, password })
-        if (error) setMessage(error.message)
+        if (error) setMessage(lang === 'ja' ? 'ログインまたは登録に失敗しました。入力内容をご確認ください。' : '로그인 또는 가입에 실패했습니다. 입력 내용을 확인해주세요.')
       } else {
         const { error } = await supabase.auth.signUp({ email, password })
-        if (error) setMessage(error.message)
+        if (error) setMessage(lang === 'ja' ? 'ログインまたは登録に失敗しました。入力内容をご確認ください。' : '로그인 또는 가입에 실패했습니다. 입력 내용을 확인해주세요.')
         else setMessage(lang === 'ja' ? '確認メールを送信しました。メールをご確認ください。' : '확인 이메일을 발송했습니다.')
       }
+    } catch {
+      setMessage(lang === 'ja' ? '接続できませんでした。再度お試しください。' : '연결하지 못했습니다. 다시 시도해주세요.')
     } finally {
       setLoading(false)
     }
   }
 
   const handleGoogleLogin = async () => {
+    if (loading) return
     setLoading(true)
     setMessage('')
     try {
@@ -43,7 +51,9 @@ export default function AuthScreen({ lang, onLangChange }: Props) {
           redirectTo: window.location.origin,
         },
       })
-      if (error) setMessage(error.message)
+      if (error) setMessage(lang === 'ja' ? 'ログインまたは登録に失敗しました。入力内容をご確認ください。' : '로그인 또는 가입에 실패했습니다. 입력 내용을 확인해주세요.')
+    } catch {
+      setMessage(lang === 'ja' ? '接続できませんでした。再度お試しください。' : '연결하지 못했습니다. 다시 시도해주세요.')
     } finally {
       setLoading(false)
     }
@@ -116,10 +126,13 @@ export default function AuthScreen({ lang, onLangChange }: Props) {
 
           <div className="space-y-4">
             <div>
-              <label className="text-[10px] tracking-[0.2em] uppercase text-gold-500 mb-1 block">
+              <label htmlFor="auth-email" className="text-[10px] tracking-[0.2em] uppercase text-gold-500 mb-1 block">
                 {lang === 'ja' ? 'メールアドレス' : '이메일'}
               </label>
               <input
+                id="auth-email"
+                autoComplete="email"
+                required
                 type="email"
                 value={email}
                 onChange={e => setEmail(e.target.value)}
@@ -127,39 +140,46 @@ export default function AuthScreen({ lang, onLangChange }: Props) {
                 placeholder="email@example.com"
               />
             </div>
-            <div>
-              <label className="text-[10px] tracking-[0.2em] uppercase text-gold-500 mb-1 block">
+            {mode !== 'reset' && <div>
+              <label htmlFor="auth-password" className="text-[10px] tracking-[0.2em] uppercase text-gold-500 mb-1 block">
                 {lang === 'ja' ? 'パスワード' : '비밀번호'}
               </label>
               <input
+                id="auth-password"
+                autoComplete={mode === 'signin' ? 'current-password' : 'new-password'}
+                required
+                minLength={6}
                 type="password"
                 value={password}
                 onChange={e => setPassword(e.target.value)}
                 className="input-field"
                 placeholder="••••••••"
-                onKeyDown={e => e.key === 'Enter' && handleAuth()}
+                onKeyDown={e => e.key === 'Enter' && email && password && !loading && handleAuth()}
               />
-            </div>
+            </div>}
 
             {message && (
-              <div className="text-xs text-gold-200 bg-gold-900/20 p-3 border border-gold-700/30 rounded">
+              <div role="status" aria-live="polite" className="text-xs text-gold-200 bg-gold-900/20 p-3 border border-gold-700/30 rounded">
                 {message}
               </div>
             )}
 
             <button
               onClick={handleAuth}
-              disabled={loading || !email || !password}
+              disabled={loading || !email || (mode !== 'reset' && !password)}
               className="btn-primary w-full"
             >
               {loading
                 ? t.common.loading
-                : mode === 'signin'
+                : mode === 'reset' ? (lang === 'ja' ? '再設定メールを送信' : '재설정 이메일 보내기') : mode === 'signin'
                   ? (lang === 'ja' ? 'ログイン' : '로그인')
                   : (lang === 'ja' ? '登録する' : '가입하기')
               }
             </button>
 
+            <button type="button" className="text-xs underline text-gold-300" onClick={() => { setMode(mode === 'reset' ? 'signin' : 'reset'); setMessage('') }}>
+              {mode === 'reset' ? (lang === 'ja' ? 'ログインに戻る' : '로그인으로 돌아가기') : (lang === 'ja' ? 'パスワードを忘れた方' : '비밀번호를 잊으셨나요?')}
+            </button>
             {/* Divider */}
             <div className="flex items-center gap-3 py-1">
               <div className="flex-1 h-px bg-gold-900/30" />

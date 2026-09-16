@@ -3,6 +3,7 @@ import { useState, useRef, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import { translations, Language } from '@/i18n'
 import { calculateTasteProfile, calculateMatchScore, buildMatchReason, TastingRecord } from '@/lib/tastePofile'
+import { analyzeImage } from '@/lib/aiClient'
 import ImageCropModal from './ImageCropModal'
 import type { User } from '@supabase/supabase-js'
 
@@ -21,7 +22,7 @@ export default function AIRecommend({ lang, user, onBack }: Props) {
   const [usageThisMonth, setUsageThisMonth] = useState(0)
   const [cropFile, setCropFile] = useState<File | null>(null)
 
-  useEffect(() => { loadStats() }, [])
+  useEffect(() => { loadStats().catch(() => setError(t.common.error)) }, [user.id])
 
   const loadStats = async () => {
     const { data: tastings } = await supabase
@@ -31,23 +32,23 @@ export default function AIRecommend({ lang, user, onBack }: Props) {
       .not('score', 'is', null)
 
     if (tastings) {
-      const isRed = (v: string) => ['red', '레드', '赤ワイン', '赤'].includes(v)
-      const isWhite = (v: string) => ['white', '화이트', '白ワイン', '白'].includes(v)
+      const isRed = (v: string | null) => ['red', '레드', '赤ワイン', '赤'].includes(v || '')
+      const isWhite = (v: string | null) => ['white', '화이트', '白ワイン', '白'].includes(v || '')
       setRedCount(tastings.filter(t => isRed(t.wine_type)).length)
       setWhiteCount(tastings.filter(t => isWhite(t.wine_type)).length)
     }
 
-    const startOfMonth = new Date()
-    startOfMonth.setDate(1)
-    startOfMonth.setHours(0, 0, 0, 0)
+    const tokyoMonth = new Date().toLocaleDateString('sv-SE', { timeZone: 'Asia/Tokyo' }).slice(0, 7)
+    const startOfMonth = new Date(`${tokyoMonth}-01T00:00:00+09:00`)
 
-    const { count } = await supabase
+    const { count, error: usageError } = await supabase
       .from('ai_usage_logs')
       .select('*', { count: 'exact', head: true })
       .eq('user_id', user.id)
       .eq('feature', 'sommelier')
       .gte('created_at', startOfMonth.toISOString())
 
+    if (usageError) throw new Error(t.common.error)
     setUsageThisMonth(count || 0)
   }
 
@@ -58,37 +59,23 @@ export default function AIRecommend({ lang, user, onBack }: Props) {
     try {
       const canMatch = redCount >= 10 && whiteCount >= 10
 
-      // 1단계: 취향 프로필을 코드에서 직접 계산 (AI 호출 없음)
-      let tasteProfile = null
-      if (canMatch) {
-        const { data: allTastings } = await supabase
-          .from('tastings')
-          .select('wine_type, body, tannin, acidity, alcohol, grape_variety, country, region, score')
-          .eq('user_id', user.id)
-          .not('score', 'is', null)
-
-        if (allTastings) {
-          tasteProfile = calculateTasteProfile(allTastings as TastingRecord[])
-        }
-      }
+      // Compare only the same wine type; red and white structures must not be mixed.
 
       try {
-        const res = await fetch('/api/sommelier', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            imageBase64: cropped.base64,
-            imageMediaType: cropped.mediaType,
-            lang,
-          }),
-        })
-
-        if (!res.ok) {
-          const errData = await res.json()
-          throw new Error(errData.error || 'Analysis failed')
+        const aiResult = await analyzeImage('sommelier', cropped, lang)
+        let tasteProfile = null
+        if (canMatch && aiResult.wineType) {
+          const records: TastingRecord[] = []
+          for (let from = 0; ; from += 500) {
+            const { data, error } = await supabase.from('tastings')
+              .select('wine_type, body, tannin, acidity, alcohol, grape_variety, country, region, score')
+              .eq('user_id', user.id).eq('wine_type', aiResult.wineType).not('score', 'is', null)
+              .order('created_at').order('id').range(from, from + 499)
+            if (error) throw new Error(t.common.error)
+            records.push(...(data || [])); if (!data || data.length < 500) break
+          }
+          tasteProfile = calculateTasteProfile(records)
         }
-
-        const { result: aiResult } = await res.json()
 
         // 매칭 점수는 코드가 직접 계산 (AI 재호출 없음, 무료, 즉시)
         let finalResult: any = { ...aiResult, matchScore: null, matchReason: '' }
@@ -107,15 +94,13 @@ export default function AIRecommend({ lang, user, onBack }: Props) {
           finalResult.matchReason = buildMatchReason(lang, matchResult)
         } else {
           finalResult.matchReason = lang === 'ja'
-            ? `記録が不足しています（赤${redCount}/10本、白${whiteCount}/10本必要）。記録を増やすとより正確な相性診断ができます。`
-            : `기록이 부족합니다 (레드 ${redCount}/10병, 화이트 ${whiteCount}/10병 필요). 기록이 쌓이면 더 정확한 취향 진단이 가능합니다.`
+            ? `同じタイプの好みの記録が不足しています（赤${redCount}/10本、白${whiteCount}/10本必要）。7点以上のワインの構造データも必要です。`
+            : `같은 유형의 선호 기록이 부족합니다 (레드 ${redCount}/10병, 화이트 ${whiteCount}/10병 필요). 7점 이상 평가한 와인의 구조 정보도 필요합니다.`
         }
 
         setResult(finalResult)
         setImageUrl(`data:${cropped.mediaType};base64,${cropped.base64}`)
 
-        await supabase.from('ai_usage_logs').insert({ user_id: user.id, feature: 'sommelier' })
-        setUsageThisMonth(prev => prev + 1)
       } catch (e: any) {
         console.error('Analysis failed:', e)
         setError(
@@ -124,6 +109,7 @@ export default function AIRecommend({ lang, user, onBack }: Props) {
         )
       } finally {
         setAnalyzing(false)
+        loadStats().catch(() => {})
       }
     } catch (e) {
       console.error(e)
@@ -178,6 +164,7 @@ export default function AIRecommend({ lang, user, onBack }: Props) {
         </div>
       )}
 
+      <p className="text-xs text-cave-100 mb-3">{lang === 'ja' ? 'AIソムリエは1日20回・月100回まで。解析開始後の失敗も利用回数に含まれます。' : 'AI 소믈리에는 하루 20회·월 100회까지입니다. 분석 시작 후 실패한 요청도 횟수에 포함됩니다.'}</p>
       <input ref={fileRef} type="file" accept="image/*" capture="environment" className="hidden"
         onChange={e => e.target.files?.[0] && setCropFile(e.target.files[0])} />
       <input ref={uploadRef} type="file" accept="image/*" className="hidden"
@@ -216,7 +203,7 @@ export default function AIRecommend({ lang, user, onBack }: Props) {
       )}
 
       {error && (
-        <div className="text-xs text-red-300 bg-red-900/20 border border-red-800/40 p-3 rounded mb-4">
+        <div role="alert" className="text-xs text-red-300 bg-red-900/20 border border-red-800/40 p-3 rounded mb-4">
           {error}
         </div>
       )}
@@ -250,6 +237,8 @@ export default function AIRecommend({ lang, user, onBack }: Props) {
             </div>
           )}
 
+          <p className="text-xs text-cave-100">{lang === 'ja' ? '価格は日本市場の参考情報です。構造・相性スコアは推定であり、好みの確率ではありません。' : '가격은 일본 시장의 참고 정보입니다. 구조·취향 점수는 추정치이며 선호 확률이 아닙니다.'}</p>
+          {result.sources?.length > 0 && <div className="card p-3 text-xs"><div>{lang === 'ja' ? '調査出典' : '조사 출처'}</div>{result.sources.map((source: { url: string; title: string }, i: number) => <a key={`${source.url}-${i}`} href={source.url} target="_blank" rel="noopener noreferrer" className="block underline mt-2 break-words">{source.title || source.url}</a>)}</div>}
           {(result.priceJPY || result.priceUSD) && (
             <div className="card p-4">
               <div className="text-[10px] tracking-widest uppercase text-gold-400 mb-2">

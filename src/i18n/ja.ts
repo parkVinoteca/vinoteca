@@ -19,7 +19,7 @@ export const ja = {
     takePhoto: '写真を撮る',
     uploadPhoto: '写真をアップロード',
     analyzing: 'AI解析中...',
-    autoFilled: '自動入力されました',
+    autoFilled: 'ラベル自動認識',
     wineName: 'ワイン名',
     producer: '生産者',
     vintage: 'ヴィンテージ',

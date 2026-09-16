@@ -15,32 +15,50 @@ export interface TastingRecord {
 export interface TasteProfile {
   count: number
   avgScore: number
-  bodyScore: number      // 1-5 (light-full)
-  tanninScore: number    // 1-5
-  acidityScore: number   // 1-5
-  alcoholScore: number   // 1-5
+  bodyScore: number | null      // 1-5 (light-full)
+  tanninScore: number | null    // 1-5
+  acidityScore: number | null   // 1-5
+  alcoholScore: number | null   // 1-5
   topGrapes: string[]
   topRegions: string[]
   topCountries: string[]
 }
 
 // 텍스트 등급을 숫자로 변환 (다국어 대응)
-function scaleToNumber(value: string | null): number | null {
+export function scaleToNumber(value: string | null): number | null {
   if (!value) return null
-  const v = value.toLowerCase()
-  if (v.includes('light') || v.includes('라이트') || v.includes('低') || v.includes('낮음') || v.includes('軽')) return 1
-  if (v.includes('med-') || v.includes('중간-') || v.includes('中程度-')) return 2
-  if (v.includes('medium') || v.includes('中程度') || v.includes('미디엄') || v.includes('중간')) return 3
-  if (v.includes('med+') || v.includes('중간+') || v.includes('中程度+')) return 4
-  if (v.includes('full') || v.includes('high') || v.includes('풀바디') || v.includes('높음') || v.includes('強') || v.includes('高')) return 5
-  return 3 // 기본값
+  const v = value.normalize('NFKC').toLowerCase().replace(/\s/g, '').split('(')[0]
+  const scales = [
+    ['light','low','라이트','낮음','低い','軽い'],
+    ['med-','medium-','중간-','미디엄-','中程度-','ミディアム-'],
+    ['med','medium','중간','미디엄','中程度','ミディアム'],
+    ['med+','medium+','중간+','미디엄+','中程度+','ミディアム+'],
+    ['full','full-bodied','high','풀바디','높음','高い','フルボディ'],
+  ]
+  const index = scales.findIndex(labels => labels.includes(v))
+  return index < 0 ? null : index + 1
+}
+const aliases: Record<string, string> = {
+  'カベルネ・ソーヴィニヨン': 'cabernet sauvignon', '카베르네 소비뇽': 'cabernet sauvignon',
+  'ピノ・ノワール': 'pinot noir', '피노 누아': 'pinot noir',
+  'シャルドネ': 'chardonnay', '샤르도네': 'chardonnay',
+  'メルロー': 'merlot', '메를로': 'merlot', 'メルロ': 'merlot',
+  'ソーヴィニヨン・ブラン': 'sauvignon blanc', '소비뇽 블랑': 'sauvignon blanc',
+  'リースリング': 'riesling', '리슬링': 'riesling',
+  'フランス': 'france', '프랑스': 'france', 'イタリア': 'italy', '이탈리아': 'italy',
+  '日本': 'japan', '일본': 'japan', 'スペイン': 'spain', '스페인': 'spain',
+}
+export function normalizeWineTerm(value: string) {
+  const text = value.normalize('NFKC').trim().toLowerCase()
+  return aliases[text] || text
 }
 
 function countTop(items: (string | null)[], topN = 3): string[] {
   const counts: Record<string, number> = {}
   items.forEach(item => {
     if (!item) return
-    counts[item] = (counts[item] || 0) + 1
+    const key = normalizeWineTerm(item)
+    counts[key] = (counts[key] || 0) + 1
   })
   return Object.entries(counts)
     .sort((a, b) => b[1] - a[1])
@@ -54,21 +72,21 @@ export function calculateTasteProfile(records: TastingRecord[]): TasteProfile | 
 
   const avg = (nums: number[]) => nums.length > 0 ? nums.reduce((a, b) => a + b, 0) / nums.length : 3
 
-  const bodyScores = scored.map(r => scaleToNumber(r.body)).filter((n): n is number => n !== null)
-  const tanninScores = scored.map(r => scaleToNumber(r.tannin)).filter((n): n is number => n !== null)
-  const acidityScores = scored.map(r => scaleToNumber(r.acidity)).filter((n): n is number => n !== null)
-  const alcoholScores = scored.map(r => scaleToNumber(r.alcohol)).filter((n): n is number => n !== null)
-
-  // 평점 8점 이상만 "선호"로 간주해서 품종/산지 추출
+  // A preference profile is based on positively rated wines (7/10 or above).
   const preferred = scored.filter(r => (r.score || 0) >= 7)
+  if (!preferred.length) return null
+  const levelAverage = (field: 'body' | 'tannin' | 'acidity' | 'alcohol') => {
+    const values = preferred.map(r => scaleToNumber(r[field])).filter((n): n is number => n !== null)
+    return values.length ? Math.round(avg(values) * 10) / 10 : null
+  }
 
   return {
     count: scored.length,
     avgScore: Math.round(avg(scored.map(r => r.score || 0)) * 10) / 10,
-    bodyScore: Math.round(avg(bodyScores) * 10) / 10,
-    tanninScore: Math.round(avg(tanninScores) * 10) / 10,
-    acidityScore: Math.round(avg(acidityScores) * 10) / 10,
-    alcoholScore: Math.round(avg(alcoholScores) * 10) / 10,
+    bodyScore: levelAverage('body'),
+    tanninScore: levelAverage('tannin'),
+    acidityScore: levelAverage('acidity'),
+    alcoholScore: levelAverage('alcohol'),
     topGrapes: countTop(preferred.map(r => r.grape_variety)),
     topRegions: countTop(preferred.map(r => r.region)),
     topCountries: countTop(preferred.map(r => r.country)),
@@ -78,65 +96,47 @@ export function calculateTasteProfile(records: TastingRecord[]): TasteProfile | 
 // 새 와인과 취향 프로필의 구조적 유사도 계산 (0-100) + 설명 데이터 반환
 export function calculateMatchScore(
   profile: TasteProfile,
-  newWine: { body?: number; tannin?: number; acidity?: number; alcohol?: number; grape?: string; region?: string; country?: string }
-): { score: number; grapeMatched: boolean; regionMatched: boolean; structureDiff: number } {
-  let structureScore = 100
-  let totalDiff = 0
+  wine: { body?: number | null; tannin?: number | null; acidity?: number | null; alcohol?: number | null; grape?: string | null; region?: string | null; country?: string | null }
+): { score: number | null; grapeMatched: boolean; regionMatched: boolean; structureDiff: number } {
+  let difference = 0
+  let weights = 0
   let factors = 0
-
-  if (newWine.body !== undefined) {
-    const diff = Math.abs(profile.bodyScore - newWine.body)
-    structureScore -= diff * 10
+  let totalDiff = 0
+  for (const [field, weight] of [['body', 10], ['tannin', 10], ['acidity', 8], ['alcohol', 6]] as const) {
+    const value = wine[field]
+    const reference = profile[`${field}Score`]
+    if (typeof value !== 'number' || !Number.isFinite(value) || value < 1 || value > 5 || reference === null) continue
+    const diff = Math.abs(value - reference)
+    difference += diff * weight
+    weights += weight
     totalDiff += diff
     factors++
   }
-  if (newWine.tannin !== undefined) {
-    const diff = Math.abs(profile.tanninScore - newWine.tannin)
-    structureScore -= diff * 10
-    totalDiff += diff
-    factors++
+  const matches = (value: string | null | undefined, choices: string[]) => !!value && choices.some(v => normalizeWineTerm(v) === normalizeWineTerm(value))
+  const grapeMatched = matches(wine.grape, profile.topGrapes)
+  const regionMatched = matches(wine.region, profile.topRegions)
+  const countryMatched = matches(wine.country, profile.topCountries)
+  if (factors < 2) return { score: null, grapeMatched, regionMatched, structureDiff: Infinity }
+  const structure = 100 * (1 - difference / (4 * weights))
+  let sum = structure * 70
+  let denominator = 70
+  for (const [available, matched, weight] of [
+    [!!wine.grape && !!profile.topGrapes.length, grapeMatched, 15],
+    [!!wine.region && !!profile.topRegions.length, regionMatched, 10],
+    [!!wine.country && !!profile.topCountries.length, countryMatched, 5],
+  ] as const) {
+    if (available) { denominator += weight; sum += (matched ? 100 : 0) * weight }
   }
-  if (newWine.acidity !== undefined) {
-    const diff = Math.abs(profile.acidityScore - newWine.acidity)
-    structureScore -= diff * 8
-    totalDiff += diff
-    factors++
-  }
-  if (newWine.alcohol !== undefined) {
-    const diff = Math.abs(profile.alcoholScore - newWine.alcohol)
-    structureScore -= diff * 6
-    totalDiff += diff
-    factors++
-  }
-
-  structureScore = Math.max(0, Math.min(100, structureScore))
-
-  const grapeMatched = !!(newWine.grape && profile.topGrapes.some(g => newWine.grape?.includes(g) || g.includes(newWine.grape || '')))
-  const regionMatched = !!(newWine.region && profile.topRegions.some(r => newWine.region?.includes(r) || r.includes(newWine.region || '')))
-  const countryMatched = !!(newWine.country && profile.topCountries.some(c => newWine.country?.includes(c) || c.includes(newWine.country || '')))
-
-  let matchBonus = 0
-  if (grapeMatched) matchBonus += 15
-  if (regionMatched) matchBonus += 10
-  if (countryMatched) matchBonus += 5
-
-  const scoreWeight = (profile.avgScore - 5) * 2
-  const finalScore = structureScore * 0.6 + Math.min(100, matchBonus * 2) * 0.3 + (50 + scoreWeight) * 0.1
-
-  return {
-    score: Math.round(Math.max(0, Math.min(100, finalScore))),
-    grapeMatched,
-    regionMatched,
-    structureDiff: factors > 0 ? totalDiff / factors : 0,
-  }
+  return { score: Math.round(Math.max(0, Math.min(100, sum / denominator))), grapeMatched, regionMatched, structureDiff: totalDiff / factors }
 }
 
 // 매칭 결과를 사람이 읽을 수 있는 설명 문구로 변환 (AI 호출 없이 템플릿 기반)
 export function buildMatchReason(
   lang: 'ja' | 'ko',
-  matchResult: { score: number; grapeMatched: boolean; regionMatched: boolean; structureDiff: number }
+  matchResult: { score: number | null; grapeMatched: boolean; regionMatched: boolean; structureDiff: number }
 ): string {
   const { score, grapeMatched, regionMatched, structureDiff } = matchResult
+  if (score === null) return lang === 'ja' ? '構造データが不足しているため相性スコアを計算できません。' : '구조 정보가 부족해 취향 점수를 계산할 수 없습니다.'
   const isCloseStructure = structureDiff < 1
 
   if (lang === 'ja') {

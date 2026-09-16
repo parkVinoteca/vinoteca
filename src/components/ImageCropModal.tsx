@@ -11,6 +11,8 @@ interface Props {
 }
 
 export default function ImageCropModal({ file, lang, onConfirm, onCancel }: Props) {
+  const dialogRef = useRef<HTMLDivElement>(null)
+  const [error, setError] = useState('')
   const imgRef = useRef<HTMLImageElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
   const [imgLoaded, setImgLoaded] = useState(false)
@@ -24,6 +26,14 @@ export default function ImageCropModal({ file, lang, onConfirm, onCancel }: Prop
     if (imgRef.current) imgRef.current.src = objUrl
     return () => URL.revokeObjectURL(objUrl)
   }, [file])
+
+  useEffect(() => {
+    const previous = document.activeElement as HTMLElement | null
+    dialogRef.current?.focus()
+    const before = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => { document.body.style.overflow = before; previous?.focus() }
+  }, [])
 
   const handleImgLoad = () => {
     if (!imgRef.current) return
@@ -100,8 +110,10 @@ export default function ImageCropModal({ file, lang, onConfirm, onCancel }: Prop
       width: Math.round(box.width * natW),
       height: Math.round(box.height * natH),
     }
-    const result = cropAndResizeImage(imgRef.current, cropPx, 1024, 0.85)
-    onConfirm(result)
+    try {
+      const result = cropAndResizeImage(imgRef.current, cropPx, 1024, 0.85)
+      onConfirm(result)
+    } catch { setError(lang === 'ja' ? '画像を処理できませんでした。' : '이미지를 처리하지 못했습니다.') }
   }
 
   const handle = (mode: 'tl' | 'tr' | 'bl' | 'br', posClass: string) => (
@@ -113,9 +125,19 @@ export default function ImageCropModal({ file, lang, onConfirm, onCancel }: Prop
   )
 
   return (
-    <div className="fixed inset-0 bg-black/90 z-[100] flex flex-col">
+    <div ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby="crop-title" tabIndex={-1}
+      onKeyDown={e => {
+        if (e.key === 'Escape') { e.preventDefault(); onCancel() }
+        if (e.key === 'Tab') {
+          const elements = dialogRef.current?.querySelectorAll<HTMLElement>('button:not(:disabled), input, [tabindex="0"]')
+          if (!elements?.length) return
+          const first = elements[0], last = elements[elements.length - 1]
+          if (e.shiftKey && (document.activeElement === first || document.activeElement === dialogRef.current)) { e.preventDefault(); last.focus() }
+          else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus() }
+        }
+      }} className="fixed inset-0 bg-black/90 z-[100] flex flex-col">
       <div className="flex-shrink-0 p-4 text-center">
-        <div className="text-gold-200 text-sm font-medium">
+        <div id="crop-title" className="text-gold-200 text-sm font-medium">
           {lang === 'ja' ? 'ラベルの範囲を指定してください' : '라벨 영역을 지정해주세요'}
         </div>
         <div className="text-cave-200 text-[11px] mt-1">
@@ -128,6 +150,7 @@ export default function ImageCropModal({ file, lang, onConfirm, onCancel }: Prop
           <img
             ref={imgRef}
             onLoad={handleImgLoad}
+            onError={() => setError(lang === 'ja' ? 'この画像形式を読み込めません。JPEG/PNGでお試しください。' : '이미지를 읽지 못했습니다. JPEG/PNG로 시도해주세요.')}
             className="max-w-full max-h-[60vh] block select-none"
             draggable={false}
             alt=""
@@ -161,11 +184,18 @@ export default function ImageCropModal({ file, lang, onConfirm, onCancel }: Prop
         </div>
       </div>
 
+      {error && <p role="alert" className="px-4 text-sm">{error}</p>}
+      <div className="px-4 grid grid-cols-2 gap-2 text-xs">
+        {(['x','y','width','height'] as const).map((field, i) => <label key={field}>
+          {(lang === 'ja' ? ['横位置','縦位置','幅','高さ'] : ['가로 위치','세로 위치','너비','높이'])[i]}
+          <input type="range" min={field === 'width' || field === 'height' ? 0.1 : 0} max={field === 'x' ? 1-box.width : field === 'y' ? 1-box.height : field === 'width' ? 1-box.x : 1-box.y} step={0.01} value={box[field]} onChange={e => setBox(prev => ({ ...prev, [field]: Number(e.target.value) }))} className="w-full" />
+        </label>)}
+      </div>
       <div className="flex-shrink-0 p-4 grid grid-cols-2 gap-3">
         <button onClick={onCancel} className="btn-secondary py-3">
           {lang === 'ja' ? 'キャンセル' : '취소'}
         </button>
-        <button onClick={handleConfirm} className="btn-primary py-3">
+        <button onClick={handleConfirm} disabled={!imgLoaded || !!error} className="btn-primary py-3">
           {lang === 'ja' ? 'この範囲で解析' : '이 영역으로 분석'}
         </button>
       </div>

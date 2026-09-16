@@ -93,3 +93,11 @@ body {
     text-shadow: 0 0 20px rgba(201,168,118,0.3);
   }
 }
+
+/* Visible keyboard focus and room for mobile home indicators. */
+:focus-visible { outline: 2px solid #c7a45d; outline-offset: 3px; }
+nav.fixed.bottom-0 { padding-bottom: env(safe-area-inset-bottom, 0px); }
+button:disabled { cursor: not-allowed; }
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }
+}

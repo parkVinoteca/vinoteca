@@ -1,5 +1,5 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
 import { translations, Language } from '@/i18n'
 import TastingSheet from './TastingSheet'
@@ -9,6 +9,9 @@ interface Props { lang: Language; user: User; onBack: () => void }
 
 export default function BlindMode({ lang, user, onBack }: Props) {
   const t = translations[lang]
+  const [error, setError] = useState('')
+  const [busy, setBusy] = useState(false)
+  const createLock = useRef(false)
   const [sessions, setSessions] = useState<any[]>([])
   const [view, setView] = useState<'list' | 'new' | 'active'>('list')
   const [sessionTitle, setSessionTitle] = useState('')
@@ -17,14 +20,20 @@ export default function BlindMode({ lang, user, onBack }: Props) {
   const [currentWine, setCurrentWine] = useState(1)
   const [completedWines, setCompletedWines] = useState<number[]>([])
 
-  useEffect(() => { loadSessions() }, [])
+  useEffect(() => { loadSessions().catch(() => setError(t.common.error)) }, [user.id])
 
   const loadSessions = async () => {
-    const { data } = await supabase.from('blind_sessions').select('*').eq('user_id', user.id).order('created_at', { ascending: false })
-    if (data) setSessions(data)
+    const { data, error } = await supabase.from('blind_sessions').select('*').eq('user_id', user.id).order('created_at', { ascending: false })
+    if (error) setError(t.common.error)
+    else if (data) setSessions(data)
   }
 
   const createSession = async () => {
+    if (createLock.current) return
+    createLock.current = true
+    setBusy(true)
+    setError('')
+    try {
     const { data, error } = await supabase.from('blind_sessions').insert({
       user_id: user.id,
       title: sessionTitle || (lang === 'ja' ? 'ブラインドセッション' : '블라인드 세션'),
@@ -36,20 +45,35 @@ export default function BlindMode({ lang, user, onBack }: Props) {
       setCurrentWine(1)
       setCompletedWines([])
       setView('active')
-      loadSessions()
-    }
+      await loadSessions()
+    } else setError(t.common.error)
+    } catch { setError(t.common.error) } finally { createLock.current = false; setBusy(false) }
   }
 
+  const resumeSession = async (session: any) => {
+    setError('')
+    const { data, error } = await supabase.from('tastings').select('blind_wine_number')
+      .eq('user_id', user.id).eq('blind_session_id', session.id)
+    if (error) { setError(t.common.error); return }
+    const done = [...new Set((data || []).map(row => row.blind_wine_number as number))]
+    setActiveSession(session)
+    setCompletedWines(done)
+    setCurrentWine(Array.from({ length: session.wine_count }, (_, i) => i + 1).find(n => !done.includes(n)) || 1)
+    setView('active')
+  }
   const completeSession = async () => {
-    await supabase.from('blind_sessions').update({ status: 'completed' }).eq('id', activeSession.id)
-    setView('list')
-    setActiveSession(null)
-    loadSessions()
+    setBusy(true)
+    try {
+      const { error } = await supabase.from('blind_sessions').update({ status: 'completed' }).eq('id', activeSession.id).eq('user_id', user.id)
+      if (error) { setError(t.common.error); return }
+      setView('list'); setActiveSession(null); await loadSessions()
+    } catch { setError(t.common.error) } finally { setBusy(false) }
   }
 
   if (view === 'active' && activeSession) {
     return (
       <div>
+        {error && <p role="alert" className="card p-3">{error}</p>}
         {/* Session Header */}
         <div className="bg-cave-700 text-white px-4 py-3 flex items-center justify-between">
           <div>
@@ -58,7 +82,7 @@ export default function BlindMode({ lang, user, onBack }: Props) {
               {completedWines.length}/{activeSession.wine_count} {lang === 'ja' ? '完了' : '완료'}
             </div>
           </div>
-          <button onClick={completeSession} className="text-xs border border-white/30 px-3 py-1 hover:bg-cave-600/40/10">
+          <button onClick={completeSession} disabled={busy || completedWines.length < activeSession.wine_count} className="text-xs border border-white/30 px-3 py-1 hover:bg-cave-600/40/10">
             {t.blind.complete}
           </button>
         </div>
@@ -68,6 +92,7 @@ export default function BlindMode({ lang, user, onBack }: Props) {
           {Array.from({ length: activeSession.wine_count }, (_, i) => i + 1).map(n => (
             <button
               key={n}
+              disabled={completedWines.includes(n)}
               onClick={() => setCurrentWine(n)}
               className={`flex-shrink-0 w-10 h-10 rounded-full text-sm font-medium transition-colors ${
                 currentWine === n
@@ -82,16 +107,15 @@ export default function BlindMode({ lang, user, onBack }: Props) {
           ))}
         </div>
 
-        <TastingSheet
+        {completedWines.length < activeSession.wine_count ? <TastingSheet
+          key={`${activeSession.id}-${currentWine}`}
           lang={lang}
           user={user}
-          onBack={() => {
-            setCompletedWines(prev => [...prev, currentWine])
-            if (currentWine < activeSession.wine_count) setCurrentWine(currentWine + 1)
-          }}
+          onBack={() => setView('list')}
+          onSaved={() => { resumeSession(activeSession).catch(() => setError(t.common.error)) }}
           blindSessionId={activeSession.id}
           blindWineNumber={currentWine}
-        />
+        /> : <p role="status" className="p-6">{lang === 'ja' ? 'すべてのワインを記録しました。セッションを完了できます。' : '모든 와인을 기록했습니다. 세션을 완료할 수 있습니다.'}</p>}
       </div>
     )
   }
@@ -99,6 +123,7 @@ export default function BlindMode({ lang, user, onBack }: Props) {
   if (view === 'new') {
     return (
       <div className="max-w-lg mx-auto p-4">
+        {error && <p role="alert" className="card p-3">{error}</p>}
         <button onClick={() => setView('list')} className="text-gold-400 text-sm mb-4">← {t.common.back}</button>
         <div className="section-title">{t.blind.newSession}</div>
 
@@ -116,7 +141,7 @@ export default function BlindMode({ lang, user, onBack }: Props) {
             <label className="text-[10px] tracking-widest uppercase text-gold-400 mb-2 block">
               {t.blind.wineCount}: {wineCount}
             </label>
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
               {[1,2,3,4,5,6,7,8,9,10].map(n => (
                 <button
                   key={n}
@@ -130,7 +155,7 @@ export default function BlindMode({ lang, user, onBack }: Props) {
               ))}
             </div>
           </div>
-          <button onClick={createSession} className="btn-primary w-full">{t.blind.start}</button>
+          <button onClick={createSession} disabled={busy} className="btn-primary w-full">{t.blind.start}</button>
         </div>
       </div>
     )
@@ -176,7 +201,7 @@ export default function BlindMode({ lang, user, onBack }: Props) {
               </div>
               {s.status === 'active' && (
                 <button
-                  onClick={() => { setActiveSession(s); setCurrentWine(1); setCompletedWines([]); setView('active') }}
+                  onClick={() => { resumeSession(s).catch(() => setError(t.common.error)) }}
                   className="mt-3 btn-secondary w-full py-2 text-xs"
                 >
                   {lang === 'ja' ? '続きから' : '이어서 하기'}

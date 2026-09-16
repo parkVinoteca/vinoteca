@@ -19,7 +19,7 @@ export const ko = {
     takePhoto: '사진 찍기',
     uploadPhoto: '사진 업로드',
     analyzing: 'AI 분석 중...',
-    autoFilled: '자동 입력됐습니다',
+    autoFilled: '라벨 자동 인식',
     wineName: '와인 이름',
     producer: '생산자',
     vintage: '빈티지',

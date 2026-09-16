@@ -1,19 +1,35 @@
-import { createClient } from '@supabase/supabase-js'
+import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
-  auth: {
-    persistSession: true,      // 브라우저를 껐다 켜도 로그인 유지
-    autoRefreshToken: true,    // 세션 만료 전 자동 갱신 (로그아웃 방지)
-    detectSessionInUrl: true,  // OAuth 리다이렉트 후 세션 자동 감지
+export const isSupabaseConfigured = Boolean(supabaseUrl && supabaseAnonKey)
+let client: SupabaseClient<Database> | undefined
+// Resolve only when used in the browser; builds do not require deployment secrets.
+export const supabase = new Proxy({} as SupabaseClient<Database>, {
+  get(_target, property) {
+    if (!isSupabaseConfigured) throw new Error('Service configuration unavailable')
+    client ??= createClient<Database>(supabaseUrl, supabaseAnonKey, {
+      auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true },
+    })
+    const value = Reflect.get(client, property)
+    return typeof value === 'function' ? value.bind(client) : value
   },
 })
 
 export type Database = {
   public: {
+    Views: {}
+    Functions: { reserve_ai_usage: { Args: { p_feature: string }; Returns: boolean } }
+    Enums: {}
+    CompositeTypes: {}
     Tables: {
+      ai_usage_logs: {
+        Row: { id: string; user_id: string; feature: string; created_at: string }
+        Insert: never
+        Update: never
+        Relationships: []
+      }
       tastings: {
         Row: {
           id: string
@@ -66,6 +82,9 @@ export type Database = {
           // General
           score: number | null
           stars: number | null
+          palate_notes: string | null
+          blind_session_id: string | null
+          blind_wine_number: number | null
           notes: string | null
           food_pairing: string[] | null
           // Expert scores
@@ -76,7 +95,8 @@ export type Database = {
           language: 'ja' | 'ko'
           created_at: string
         }
-        Insert: Omit<Database['public']['Tables']['tastings']['Row'], 'id' | 'created_at'>
+        Relationships: []
+        Insert: Partial<Database['public']['Tables']['tastings']['Row']> & { user_id: string }
         Update: Partial<Database['public']['Tables']['tastings']['Insert']>
       }
       blind_sessions: {
@@ -88,7 +108,8 @@ export type Database = {
           status: 'active' | 'completed'
           created_at: string
         }
-        Insert: Omit<Database['public']['Tables']['blind_sessions']['Row'], 'id' | 'created_at'>
+        Relationships: []
+        Insert: Partial<Database['public']['Tables']['blind_sessions']['Row']> & { user_id: string; title: string }
         Update: Partial<Database['public']['Tables']['blind_sessions']['Insert']>
       }
     }
