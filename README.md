@@ -25,7 +25,7 @@ VercelのProductionとPreviewそれぞれに設定します。秘密値をロー
 
 ## データベース
 
-新規開発DB: `supabase_schema.sql`、続いて `supabase/migrations/20260916_reliability.sql`。
+新規開発DB: `supabase_schema.sql` → `supabase_schema_v2.sql` → `supabase/migrations/20260916_reliability.sql` の順に適用します。
 既存DB: 新規作成SQLを再実行せず、レビュー済みのmigrationのみを適用します。
 運用DBでは2026-09-17にmigration適用と読み取り検証が完了しています。
 画像は非公開バケットに保存し、所有者に期限付きURLを発行します。
