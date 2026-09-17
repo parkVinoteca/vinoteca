@@ -4,16 +4,18 @@ const { load } = require('./helpers.cjs')
 const ai = load('src/lib/server/ai.ts')
 const label = ai.validateLabel({ wineName: 'Reserve Margaux', producer: 'Mouton Cadet', vintage: '2022', country: 'France' })
 const url = 'https://www.moutoncadet.com/fr/vins/reserve-mouton-cadet-margaux/'
-const facts = { wineMatched: true, vintageMatched: true, grapeVariety: 'Cabernet Sauvignon, Merlot, Cabernet Franc', blendRatio: null, source: url }
+const document = 'Réserve Mouton Cadet Margaux 2022. Varietal mix: Cabernet Sauvignon Power and structure. Merlot Fruit and roundness. Cabernet Franc Freshness and spice.'
+const grapeList = ['Cabernet Sauvignon', 'Merlot', 'Cabernet Franc']
+const facts = { vintageEvidence: 'Réserve Mouton Cadet Margaux 2022', grapes: grapeList.map(name => ({name, evidence: name})), wineMatched: true, vintageMatched: true, grapeVariety: 'Cabernet Sauvignon, Merlot, Cabernet Franc', blendRatio: null, source: url }
 function setup(factsOverride = facts, fail = false) {
  let calls = 0
  const providerFetch = async (_, init) => {
   calls++
   const body = JSON.parse(init.body)
   assert.equal(body.tools[0].max_uses, 2)
-  assert.equal(body.max_tokens, 1600)
+  assert.equal(body.max_tokens, 2400)
   if (fail) throw new ai.ApiError('provider_timeout', 502)
-  return { stop_reason: 'end_turn', content: [{ type: 'web_search_tool_result', content: [{ type: 'web_search_result', url }] }, { type: 'text', text: JSON.stringify(factsOverride) }] }
+  return { stop_reason: 'end_turn', content: [{ type: 'web_search_tool_result', content: [{ type: 'web_search_result', url }] }, { type: 'web_fetch_tool_result', content: { type: 'web_fetch_result', url, content: { source: { type: 'text', data: document } } } }, { type: 'text', text: JSON.stringify(factsOverride) }] }
  }
  return { enrich: load('src/lib/server/grapes.ts', {}, { '@/lib/server/ai': { ...ai, providerFetch } }).enrichGrapes, calls: () => calls }
 }
@@ -60,4 +62,15 @@ test('Label route performs enrichment inside a single usage reservation', async 
  assert.equal(response.status, 200)
  assert.equal((await response.json()).result.grapeVariety, facts.grapeVariety)
  assert.equal(reservations, 1); assert.equal(researches, 1)
+})
+
+test('Search URL alone cannot substantiate invented grapes', async () => {
+ const result = await setup({ ...facts, grapes: [...facts.grapes, { name: 'Petit Verdot', evidence: 'Petit Verdot adds structure' }] }).enrich(label, 'ja', 'offline')
+ assert.equal(result.grapeVariety, null)
+ assert.equal(result.grapeResearch.status, 'not_found')
+})
+test('Invented year evidence and ratios are not accepted', async () => {
+ const result = await setup({ ...facts, vintageEvidence: '2022 vintage exact blend', blendRatio: '70% Merlot, 30% Cabernet Sauvignon' }).enrich(label, 'ko', 'offline')
+ assert.equal(result.grapeResearch.vintageMatched, false)
+ assert.equal(result.grapeResearch.blendRatio, null)
 })
