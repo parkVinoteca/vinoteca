@@ -94,7 +94,7 @@ test('Label quota fallback calls Claude once without another reservation or web 
  const mock={...ai,authorize:async()=>({}),reserveUsage:async()=>{reservations++},providerFetch:async(url,init)=>{
   calls.push({url,body:JSON.parse(init.body)})
   if(calls.length===1)throw new ai.ApiError('provider_busy',502)
-  return {stop_reason:'end_turn',content:[{type:'text',text:JSON.stringify({wineName:'Chateau Margaux',vintage:'2015',wineType:'red'})}]}
+  return {stop_reason:'end_turn',content:[{type:'text',text:JSON.stringify({wineName:'Chateau Margaux',vintage:'2015',wineType:'red',grapeVariety:'Cabernet Sauvignon'})}]}
  }}
  const handler=load('src/app/api/label/route.ts',{process:{env:{GEMINI_API_KEY:'offline',ANTHROPIC_API_KEY:'offline'}}},{'@/lib/server/ai':mock})
  const response=await handler.POST(request(image));assert.equal(response.status,200)

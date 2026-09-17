@@ -1,7 +1,9 @@
 'use client'
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import { analyzeImage } from '@/lib/aiClient'
+import AnalysisProgress, { type AnalysisStage } from './AnalysisProgress'
+import type { GrapeResearch } from '@/lib/server/grapes'
 import ImageCropModal from './ImageCropModal'
 import { translations, Language } from '@/i18n'
 import type { User } from '@supabase/supabase-js'
@@ -27,6 +29,12 @@ export default function TastingSheet({ lang, user, onBack, blindSessionId, blind
   const [labelPath, setLabelPath] = useState('')
   const [labelImageUrl, setLabelImageUrl] = useState('')
   const [analyzing, setAnalyzing] = useState(false)
+  const [analysisStage, setAnalysisStage] = useState<AnalysisStage>('upload')
+  const analysisRequest = useRef<AbortController | null>(null)
+  const [grapeResearch, setGrapeResearch] = useState<GrapeResearch | null>(null)
+  const [grapeEdited, setGrapeEdited] = useState(false)
+  useEffect(() => () => analysisRequest.current?.abort(), [])
+  const cancelAnalysis = () => { analysisRequest.current?.abort(); setAnalyzing(false); setMessage(t.analysis.cancelled) }
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
 
@@ -96,7 +104,15 @@ export default function TastingSheet({ lang, user, onBack, blindSessionId, blind
     setCropFile(file)
   }
   const savePhoto = async (image: { base64: string; mediaType: string }) => {
+    analysisRequest.current?.abort()
+    const controller = new AbortController()
+    analysisRequest.current = controller
     setCropFile(null)
+    setAnalysisStage('upload')
+    setLabelPath('')
+    setLabelImageUrl(`data:${image.mediaType};base64,${image.base64}`)
+    setGrapeResearch(null)
+    setGrapeEdited(false)
     setAnalyzing(true)
     setMessage('')
     try {
@@ -104,22 +120,27 @@ export default function TastingSheet({ lang, user, onBack, blindSessionId, blind
       const bytes = Uint8Array.from(atob(image.base64), c => c.charCodeAt(0))
       const fileName = `${user.id}/${crypto.randomUUID()}.jpg`
       const { error } = await supabase.storage.from('label-images').upload(fileName, new Blob([bytes], { type: image.mediaType }), { contentType: image.mediaType })
+      if (controller.signal.aborted) return
       if (error) throw new Error(lang === 'ja' ? '写真を保存できませんでした。再度お試しください。' : '사진을 저장하지 못했습니다. 다시 시도해주세요.')
       setLabelPath(fileName)
       setLabelImageUrl(`data:${image.mediaType};base64,${image.base64}`)
       if (!isBlind) {
-        const info = await analyzeImage('label', image, lang)
-        if (info.wineName) setWineName(info.wineName)
-        if (info.producer) setProducer(info.producer)
-        if (info.vintage && /^\d{4}$/.test(info.vintage)) setVintage(info.vintage)
-        if (info.region) setRegion(info.region)
-        if (info.country) setCountry(info.country)
-        if (info.grapeVariety) setGrapeVariety(info.grapeVariety)
-        if (info.wineType) setWineType(info.wineType)
+        setAnalysisStage('analyze')
+        const info = await analyzeImage('label', image, lang, controller.signal)
+        if (controller.signal.aborted) return
+        setAnalysisStage('organize')
+        setGrapeResearch(info.grapeResearch || null)
+        setWineName(info.wineName || '')
+        setProducer(info.producer || '')
+        setVintage(info.vintage && /^\d{4}$/.test(info.vintage) ? info.vintage : '')
+        setRegion(info.region || '')
+        setCountry(info.country || '')
+        setGrapeVariety(info.grapeVariety || '')
+        setWineType(info.wineType || '')
       }
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : t.common.error)
-    } finally { setAnalyzing(false) }
+      if (!controller.signal.aborted) setMessage(error instanceof Error ? error.message : t.common.error)
+    } finally { if (analysisRequest.current === controller) setAnalyzing(false) }
   }
 
   const toggleAroma = (aroma: string) => {
@@ -256,6 +277,7 @@ export default function TastingSheet({ lang, user, onBack, blindSessionId, blind
 
   return (
     <div className="max-w-lg mx-auto">
+      {analyzing && <AnalysisProgress imageUrl={labelImageUrl} lang={lang} stage={analysisStage} mode={isBlind ? 'upload' : 'label'} onCancel={cancelAnalysis} />}
       {message && <p role="alert" className="card p-3 mb-3 text-sm">{message}</p>}
       {cropFile && <ImageCropModal file={cropFile} lang={lang} onCancel={() => setCropFile(null)} onConfirm={savePhoto} />}
       {/* Header */}
@@ -348,16 +370,29 @@ export default function TastingSheet({ lang, user, onBack, blindSessionId, blind
                 { label: t.tasting.vintage, value: vintage, onChange: setVintage, type: 'number' },
                 { label: t.tasting.region, value: region, onChange: setRegion },
                 { label: t.tasting.country, value: country, onChange: setCountry },
-                { label: t.tasting.grapeVariety, value: grapeVariety, onChange: setGrapeVariety },
+                { label: t.tasting.grapeVariety, value: grapeVariety, onChange: (value: string) => { setGrapeVariety(value); setGrapeEdited(true) } },
               ].map(field => (
                 <div key={field.label}>
                   <label className="text-[10px] tracking-widest uppercase text-gold-400 mb-0.5 block">{field.label}</label>
                   <input
+                    aria-label={field.label}
+                    aria-describedby={field.label === t.tasting.grapeVariety && grapeResearch ? 'grape-research-note' : undefined}
                     type={field.type || 'text'}
                     value={field.value}
                     onChange={e => field.onChange(e.target.value)}
                     className="input-field"
                   />
+                  {field.label === t.tasting.grapeVariety && grapeResearch && <div id="grape-research-note" className="mt-2 space-y-1 text-xs leading-6 text-cave-100">
+                    {grapeEdited && <p>{t.analysis.edited}</p>}
+                    {grapeResearch.status === 'not_found' && <p>{t.analysis.notFound}</p>}
+                    {grapeResearch.status === 'unavailable' && <p>{t.analysis.unavailable}</p>}
+                    {grapeResearch.status === 'label' && <p>{t.analysis.labelOnly}</p>}
+                    {grapeResearch.status === 'verified' && <>
+                      {!grapeResearch.vintageMatched && <p>{t.analysis.vintageUnknown}</p>}
+                      <p>{grapeResearch.blendRatio ? `${t.analysis.blend}: ${grapeResearch.blendRatio}` : t.analysis.ratioMissing}</p>
+                      {grapeResearch.source && <a href={grapeResearch.source} target="_blank" rel="noopener noreferrer" className="text-gold-300 underline">{t.analysis.source} ↗</a>}
+                    </>}
+                  </div>}
                 </div>
               ))}
 
