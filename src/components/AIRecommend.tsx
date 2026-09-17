@@ -4,6 +4,7 @@ import { supabase } from '@/lib/supabase'
 import { translations, Language } from '@/i18n'
 import { calculateTasteProfile, calculateMatchScore, buildMatchReason, TastingRecord } from '@/lib/tastePofile'
 import { analyzeImage } from '@/lib/aiClient'
+import AnalysisProgress, { type AnalysisStage } from './AnalysisProgress'
 import ImageCropModal from './ImageCropModal'
 import type { User } from '@supabase/supabase-js'
 
@@ -14,6 +15,10 @@ export default function AIRecommend({ lang, user, onBack }: Props) {
   const fileRef = useRef<HTMLInputElement>(null)
   const uploadRef = useRef<HTMLInputElement>(null)
   const [imageUrl, setImageUrl] = useState('')
+  const analysisRequest = useRef<AbortController | null>(null)
+  const [analysisStage, setAnalysisStage] = useState<AnalysisStage>('analyze')
+  useEffect(() => () => analysisRequest.current?.abort(), [])
+  const cancelAnalysis = () => { analysisRequest.current?.abort(); setAnalyzing(false); setError(t.analysis.cancelled) }
   const [analyzing, setAnalyzing] = useState(false)
   const [result, setResult] = useState<any>(null)
   const [error, setError] = useState('')
@@ -53,6 +58,11 @@ export default function AIRecommend({ lang, user, onBack }: Props) {
   }
 
   const analyzeWine = async (cropped: { base64: string; mediaType: string }) => {
+    analysisRequest.current?.abort()
+    const controller = new AbortController()
+    analysisRequest.current = controller
+    setImageUrl(`data:${cropped.mediaType};base64,${cropped.base64}`)
+    setAnalysisStage('analyze')
     setAnalyzing(true)
     setResult(null)
     setError('')
@@ -62,7 +72,9 @@ export default function AIRecommend({ lang, user, onBack }: Props) {
       // Compare only the same wine type; red and white structures must not be mixed.
 
       try {
-        const aiResult = await analyzeImage('sommelier', cropped, lang)
+        const aiResult = await analyzeImage('sommelier', cropped, lang, controller.signal)
+        if (controller.signal.aborted) return
+        setAnalysisStage('organize')
         let tasteProfile = null
         if (canMatch && aiResult.wineType) {
           const records: TastingRecord[] = []
@@ -98,17 +110,19 @@ export default function AIRecommend({ lang, user, onBack }: Props) {
             : `같은 유형의 선호 기록이 부족합니다 (레드 ${redCount}/10병, 화이트 ${whiteCount}/10병 필요). 7점 이상 평가한 와인의 구조 정보도 필요합니다.`
         }
 
+        if (controller.signal.aborted) return
         setResult(finalResult)
         setImageUrl(`data:${cropped.mediaType};base64,${cropped.base64}`)
 
       } catch (e: any) {
+        if (controller.signal.aborted) return
         console.error('Analysis failed:', e)
         setError(
           (lang === 'ja' ? '解析に失敗しました: ' : '분석에 실패했습니다: ') +
           (e?.message || (lang === 'ja' ? '不明なエラー' : '알 수 없는 오류'))
         )
       } finally {
-        setAnalyzing(false)
+        if (analysisRequest.current === controller) setAnalyzing(false)
         loadStats().catch(() => {})
       }
     } catch (e) {
@@ -192,15 +206,7 @@ export default function AIRecommend({ lang, user, onBack }: Props) {
         </button>
       </div>
 
-      {analyzing && (
-        <div className="text-center mb-4">
-          <div className="text-3xl animate-pulse">🔍</div>
-          <div className="text-sm mt-2 text-gold-200">{lang === 'ja' ? 'AIが調査中...' : 'AI가 조사 중...'}</div>
-          <div className="text-[10px] text-cave-200 mt-1">
-            {lang === 'ja' ? 'ブレンド比率・価格をWeb検索しています' : '블렌딩 비율·가격을 검색 중입니다'}
-          </div>
-        </div>
-      )}
+      {analyzing && <AnalysisProgress imageUrl={imageUrl} lang={lang} stage={analysisStage} mode="sommelier" onCancel={cancelAnalysis} />}
 
       {error && (
         <div role="alert" className="text-xs text-red-300 bg-red-900/20 border border-red-800/40 p-3 rounded mb-4">

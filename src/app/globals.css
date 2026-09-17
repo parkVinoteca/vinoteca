@@ -101,3 +101,12 @@ button:disabled { cursor: not-allowed; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }
 }
+
+@keyframes label-scan {
+  0%, 100% { top: -25%; opacity: .35; }
+  50% { top: 80%; opacity: 1; }
+}
+.analysis-scan { animation: label-scan 3s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) {
+  .analysis-scan { animation: none !important; top: 45%; opacity: .5; }
+}
