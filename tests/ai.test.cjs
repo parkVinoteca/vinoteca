@@ -80,3 +80,33 @@ test('Label scan uses a bounded extraction model and validates the structured re
  assert.equal(captured.body.generationConfig.responseJsonSchema.additionalProperties,false)
  assert.equal(captured.body.generationConfig.maxOutputTokens,2048)
 })
+
+test('Citation-segmented text is reassembled without inserting newlines inside JSON strings',async()=>{
+ const json=JSON.stringify({...valid,description:'Producer details and quoted source'})
+ const split=json.indexOf('Producer details')+8
+ const data=responseData()
+ data.content.splice(1,1,{type:'text',text:'Research complete. '+json.slice(0,split),citations:[{type:'web_search_result_location'}]},{type:'text',text:json.slice(split)})
+ const response=await route(data).POST(request(image));assert.equal(response.status,200)
+ assert.equal((await response.json()).result.description,'Producer details and quoted source')
+})
+test('Label quota fallback calls Claude once without another reservation or web search',async()=>{
+ let calls=[],reservations=0
+ const mock={...ai,authorize:async()=>({}),reserveUsage:async()=>{reservations++},providerFetch:async(url,init)=>{
+  calls.push({url,body:JSON.parse(init.body)})
+  if(calls.length===1)throw new ai.ApiError('provider_busy',502)
+  return {stop_reason:'end_turn',content:[{type:'text',text:JSON.stringify({wineName:'Chateau Margaux',vintage:'2015',wineType:'red'})}]}
+ }}
+ const handler=load('src/app/api/label/route.ts',{process:{env:{GEMINI_API_KEY:'offline',ANTHROPIC_API_KEY:'offline'}}},{'@/lib/server/ai':mock})
+ const response=await handler.POST(request(image));assert.equal(response.status,200)
+ assert.equal((await response.json()).provider,'claude');assert.equal(reservations,1);assert.equal(calls.length,2)
+ assert.equal(calls[1].body.tools,undefined);assert.equal(calls[1].body.max_tokens,1024)
+ assert.equal(calls[1].body.output_config.format.type,'json_schema')
+})
+test('Label fallback never retries bad credentials, unreadable labels or timeouts',async()=>{
+ for(const code of ['provider_auth_failed','provider_timeout','label_unreadable']){
+  let calls=0
+  const mock={...ai,authorize:async()=>({}),reserveUsage:async()=>{},providerFetch:async()=>{calls++;throw new ai.ApiError(code,502)}}
+  const handler=load('src/app/api/label/route.ts',{process:{env:{GEMINI_API_KEY:'offline',ANTHROPIC_API_KEY:'offline'}}},{'@/lib/server/ai':mock})
+  assert.equal((await handler.POST(request(image))).status,502);assert.equal(calls,1)
+ }
+})
