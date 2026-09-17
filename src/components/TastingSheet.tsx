@@ -284,14 +284,14 @@ export default function TastingSheet({ lang, user, onBack, blindSessionId, blind
             accept="image/*"
             capture="environment"
             className="hidden"
-            onChange={e => e.target.files?.[0] && handlePhotoUpload(e.target.files[0])}
+            onChange={e => { const file = e.target.files?.[0]; e.target.value = ""; if (file) handlePhotoUpload(file) }}
           />
           <input
             ref={uploadRef}
             type="file"
             accept="image/*"
             className="hidden"
-            onChange={e => e.target.files?.[0] && handlePhotoUpload(e.target.files[0])}
+            onChange={e => { const file = e.target.files?.[0]; e.target.value = ""; if (file) handlePhotoUpload(file) }}
           />
           {labelImageUrl ? (
             <div className="relative">
