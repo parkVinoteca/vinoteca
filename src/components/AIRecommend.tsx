@@ -166,9 +166,9 @@ export default function AIRecommend({ lang, user, onBack }: Props) {
 
       <p className="text-xs text-cave-100 mb-3">{lang === 'ja' ? 'AIソムリエは1日20回・月100回まで。解析開始後の失敗も利用回数に含まれます。' : 'AI 소믈리에는 하루 20회·월 100회까지입니다. 분석 시작 후 실패한 요청도 횟수에 포함됩니다.'}</p>
       <input ref={fileRef} type="file" accept="image/*" capture="environment" className="hidden"
-        onChange={e => e.target.files?.[0] && setCropFile(e.target.files[0])} />
+        onChange={e => { const file = e.target.files?.[0]; e.target.value = ""; if (file) setCropFile(file) }} />
       <input ref={uploadRef} type="file" accept="image/*" className="hidden"
-        onChange={e => e.target.files?.[0] && setCropFile(e.target.files[0])} />
+        onChange={e => { const file = e.target.files?.[0]; e.target.value = ""; if (file) setCropFile(file) }} />
 
       {cropFile && (
         <ImageCropModal

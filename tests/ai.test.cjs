@@ -52,11 +52,31 @@ test('Provider errors do not leak upstream response details', async () => {
 })
 
 test('Provider failures distinguish credentials, credit, quota and model without exposing details', async () => {
-  for (const [status, message, code] of [[400,'API key not valid. SECRET','provider_auth_failed'],[400,'Your credit balance is too low. SECRET','provider_billing'],[429,'SECRET','provider_busy'],[404,'SECRET','provider_model_unavailable']]) {
+  for (const [status, message, code] of [[400,'API key not valid. SECRET','provider_auth_failed'],[400,'Your credit balance is too low. SECRET','provider_billing'],[429,'Quota exceeded. Check plan and billing details. SECRET','provider_busy'],[404,'SECRET','provider_model_unavailable']]) {
     const logs=[]
     const isolated=load('src/lib/server/ai.ts', {console: {error: (...args)=>logs.push(args.join(' '))},fetch:async()=>({ok:false,status,json:async()=>({error:{message}})})})
     await assert.rejects(isolated.providerFetch('https://api.anthropic.com/v1/messages',{}),e=>e.code===code)
     assert.equal(logs.join('').includes('SECRET'),false)
     assert.ok(logs.join('').includes(code))
   }
+})
+
+test('Final JSON tolerates narration and fenced output but rejects ambiguity and truncation',()=>{
+ assert.equal(ai.parseResult('Search complete.\n```json\n'+JSON.stringify(valid)+'\n```').wineName,valid.wineName)
+ assert.equal(ai.parseResult('{"wineName":"Braces {quoted} and \\"escape\\""}').wineName,'Braces {quoted} and "escape"')
+ for(const text of ['{} {}','{"wineName":"cut off"','[]'])assert.throws(()=>ai.parseResult(text))
+})
+test('Sommelier parses the final response after a separate search narration block',async()=>{
+ const data=responseData();data.content.unshift({type:'text',text:'I will check the producer and Japanese retailers.'})
+ assert.equal((await route(data).POST(request(image))).status,200)
+})
+test('Label scan uses a bounded extraction model and validates the structured response',async()=>{
+ let captured
+ const mocked={...ai,authorize:async()=>({}),reserveUsage:async()=>{},providerFetch:async(url,init)=>{captured={url,body:JSON.parse(init.body)};return{candidates:[{finishReason:'STOP',content:{parts:[{text:JSON.stringify({wineName:'Chateau Margaux',producer:'Chateau Margaux',vintage:'2015',wineType:'red'})}]}}]}}}
+ const handler=load('src/app/api/label/route.ts',{process:{env:{GEMINI_API_KEY:'offline-test'}}},{'@/lib/server/ai':mocked})
+ const response=await handler.POST(request(image))
+ assert.equal(response.status,200);assert.equal((await response.json()).result.vintage,'2015')
+ assert.ok(captured.url.includes('gemini-3.5-flash-lite'))
+ assert.equal(captured.body.generationConfig.responseJsonSchema.additionalProperties,false)
+ assert.equal(captured.body.generationConfig.maxOutputTokens,2048)
 })

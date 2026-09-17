@@ -67,8 +67,8 @@ export async function providerFetch(url: string, init: RequestInit) {
       const message = typeof body?.error?.message === 'string' ? body.error.message : ''
       let code = 'provider_request_failed'
       if (response.status === 401 || response.status === 403 || /API.key.not.valid|invalid.*api.key|API_KEY_INVALID/i.test(message)) code = 'provider_auth_failed'
-      else if (/credit balance|billing|payment|insufficient.*credit/i.test(message) || response.status === 402) code = 'provider_billing'
       else if (response.status === 429) code = 'provider_busy'
+      else if (/credit balance|billing|payment|insufficient.*credit/i.test(message) || response.status === 402) code = 'provider_billing'
       else if (response.status === 404) code = 'provider_model_unavailable'
       console.error('[ai_provider]', JSON.stringify({ provider, status: response.status, code }))
       throw new ApiError(code, 502)
@@ -82,15 +82,31 @@ export async function providerFetch(url: string, init: RequestInit) {
 }
 export function parseResult(text: unknown) {
   if (typeof text !== 'string') throw new ApiError('invalid_ai_result', 502)
+  // Models may explain a search before their final JSON. Extract a single balanced
+  // object, respecting quoted braces and escapes; never greedily join two objects.
+  const objects: string[] = []
+  let start = -1, depth = 0, quoted = false, escaped = false
+  for (let i = 0; i < text.length; i++) {
+    const char = text[i]
+    if (start < 0) { if (char === '{') { start = i; depth = 1 }; continue }
+    if (quoted) {
+      if (escaped) escaped = false
+      else if (char === '\\') escaped = true
+      else if (char === '"') quoted = false
+    } else if (char === '"') quoted = true
+    else if (char === '{') depth++
+    else if (char === '}' && --depth === 0) { objects.push(text.slice(start, i + 1)); start = -1 }
+  }
   try {
-    const result = JSON.parse(text.trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, ''))
+    if (start >= 0 || objects.length !== 1) throw new Error()
+    const result = JSON.parse(objects[0])
     if (!result || typeof result !== 'object' || Array.isArray(result)) throw new Error()
     return result as Record<string, unknown>
-  } catch { throw new ApiError('invalid_ai_result', 502) }
+  } catch { console.error('[ai_result]', 'json_invalid'); throw new ApiError('invalid_ai_result', 502) }
 }
 function optionalText(value: unknown, max = 1500): string | null {
   if (value === undefined || value === null || value === '' || value === 'null') return null
-  if (typeof value !== 'string' || value.length > max) throw new ApiError('invalid_ai_result', 502)
+  if (typeof value !== 'string' || value.length > max) { console.error('[ai_result]', 'invalid_text_field'); throw new ApiError('invalid_ai_result', 502) }
   return value
 }
 export function validateLabel(input: Record<string, unknown>) {

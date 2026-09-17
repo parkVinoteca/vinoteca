@@ -24,7 +24,7 @@ export async function POST(req: Request) {
     const results = searchBlocks.flatMap((b: { content?: unknown }) => Array.isArray(b.content) ? b.content : [])
     const sources = results.filter((b: { type: string; url?: string }) => b.type === 'web_search_result' && b.url?.startsWith('https://')).map((b: { url: string; title: string }) => ({ url: b.url, title: b.title }))
     if (!sources.length) throw new ApiError('search_unavailable', 502)
-    const result = validateSommelier(parseResult(blocks.filter((b: { type: string }) => b.type === 'text').map((b: { text: string }) => b.text).join('\n')))
+    const result = validateSommelier(parseResult(blocks.filter((b: { type: string }) => b.type === 'text').at(-1)?.text))
     // Only attach a factual price/blend if the model supplied a URL observed in tool results.
     const known = new Set(sources.map((s: { url: string }) => s.url))
     for (const [value, source] of [['priceJPY','priceJPYSource'],['priceUSD','priceUSDSource'],['blendRatio','blendSource']] as const) {
