@@ -57,10 +57,10 @@ export async function reserveUsage(client: Awaited<ReturnType<typeof authorize>>
   if (error) throw new ApiError('temporarily_unavailable', 503)
   if (data !== true) throw new ApiError('usage_limit', 429)
 }
-export async function providerFetch(url: string, init: RequestInit) {
+export async function providerFetch(url: string, init: RequestInit, timeoutMs = 40000) {
   const provider = url.includes('googleapis.com') ? 'gemini' : 'claude'
   try {
-    const response = await fetch(url, { ...init, signal: AbortSignal.timeout(40000), cache: 'no-store' })
+    const response = await fetch(url, { ...init, signal: AbortSignal.timeout(Math.min(60000, Math.max(1000, timeoutMs))), cache: 'no-store' })
     if (!response.ok) {
       const body = await response.json().catch(() => null)
       // Classify in memory; provider text may contain secrets, so never return or log it.

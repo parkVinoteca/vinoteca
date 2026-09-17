@@ -1,5 +1,6 @@
 export const ja = {
   analysis: {
+    "uploadDone": "写真の準備ができました",
     "title": "AIが写真を解析しています",
     "subtitle": "ラベルや検索資料によって時間がかかる場合があります。",
     "upload": "写真を準備しています",

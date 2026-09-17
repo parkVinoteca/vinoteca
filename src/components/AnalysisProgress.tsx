@@ -37,7 +37,7 @@ export default function AnalysisProgress({ imageUrl, lang, stage, mode, onCancel
       <ol className="w-full space-y-2.5" aria-label={t.title}>
         {steps.map((text, i) => <li key={text} aria-current={i === current ? 'step' : undefined}
           className={`flex items-center justify-between gap-3 rounded-xl border px-4 py-3.5 text-sm ${i <= current ? 'border-gold-500/40 bg-[#1c2332] text-gold-200' : 'border-[#303849] bg-[#171e2b] text-[#a8afbe]'}`}>
-          <span>{text}</span>
+          <span>{i === 0 && i < current ? t.uploadDone : text}</span>
           <span aria-hidden="true">{i < current ? '✓' : i === current ? <span className="block w-5 h-5 rounded-full border-2 border-gold-300/20 border-t-gold-300 motion-safe:animate-spin" /> : <span className="block w-8 h-1 rounded bg-[#343d50]" />}</span>
         </li>)}
       </ol>

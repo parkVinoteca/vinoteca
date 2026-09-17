@@ -10,7 +10,7 @@ async function gemini(image: Awaited<ReturnType<typeof readImage>>, key: string)
     method: 'POST', headers: { 'Content-Type': 'application/json', 'x-goog-api-key': key },
     body: JSON.stringify({ contents: [{ parts: [ { text: instruction }, { inlineData: { mimeType: image.imageMediaType, data: image.imageBase64 } } ] }],
       generationConfig: { responseMimeType: 'application/json', maxOutputTokens: 2048, responseJsonSchema: schema } }),
-  })
+  }, 15000)
   const candidate = data.candidates?.[0]
   if (candidate?.finishReason !== 'STOP') throw new ApiError('analysis_failed', 502)
   return validateLabel(parseResult(candidate.content?.parts?.filter((p: { thought?: boolean }) => !p.thought).map((p: { text?: string }) => p.text || '').join('')))
@@ -21,7 +21,7 @@ async function claude(image: Awaited<ReturnType<typeof readImage>>, key: string)
     body:JSON.stringify({model:'claude-sonnet-5',max_tokens:1024,thinking:{type:'disabled'},
       output_config:{format:{type:'json_schema',schema}},
       messages:[{role:'user',content:[{type:'text',text:instruction},{type:'image',source:{type:'base64',media_type:image.imageMediaType,data:image.imageBase64}}]}]}),
-  })
+  }, 30000)
   if(data.stop_reason!=='end_turn') throw new ApiError('analysis_failed',502)
   return validateLabel(parseResult(data.content?.filter((p:{type:string})=>p.type==='text').map((p:{text:string})=>p.text).join('')))
 }
