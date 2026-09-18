@@ -34,6 +34,7 @@ create table tastings (
   acidity text,
   tannin text,
   tannin_texture text,
+  mousse text check (mousse in ('繊細', 'クリーミー', '荒い', '섬세함', '크리미함', '거침')),
   alcohol text,
   body text,
   flavor_intensity text,

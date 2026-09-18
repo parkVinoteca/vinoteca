@@ -116,7 +116,7 @@ export function validateLabel(input: Record<string, unknown>) {
   const vintage = input.vintage == null ? null : String(input.vintage)
   if (vintage && !/^(?:\d{4}|NV|N\/V)$/i.test(vintage)) throw new ApiError('invalid_ai_result', 502)
   const wineType = optionalText(input.wineType, 20)
-  if (wineType && !['red','white','rose','sparkling','sweet'].includes(wineType)) throw new ApiError('invalid_ai_result', 502)
+  if (wineType && !['red','white','rose','sparkling'].includes(wineType)) throw new ApiError('invalid_ai_result', 502)
   return { wineName, producer, vintage, wineType,
     region: optionalText(input.region, 200), country: optionalText(input.country, 100), grapeVariety: optionalText(input.grapeVariety, 300) }
 }
@@ -132,5 +132,7 @@ export function validateSommelier(input: Record<string, unknown>) {
   return { ...label, ...levels, characteristics: input.characteristics,
     description: optionalText(input.description), blendRatio: optionalText(input.blendRatio), blendSource: optionalText(input.blendSource),
     priceJPY: optionalText(input.priceJPY, 100), priceJPYSource: optionalText(input.priceJPYSource), priceUSD: optionalText(input.priceUSD, 100), priceUSDSource: optionalText(input.priceUSDSource),
-    expertScore: optionalText(input.expertScore, 200), recommendedFor: optionalText(input.recommendedFor) }
+    expertScore: optionalText(input.expertScore, 200), recommendedFor: optionalText(input.recommendedFor),
+    drinkingWindow: optionalText(input.drinkingWindow, 100), drinkingWindowNow: optionalText(input.drinkingWindowNow, 200),
+    drinkingWindowSource: optionalText(input.drinkingWindowSource), drinkingWindowBasis: optionalText(input.drinkingWindowBasis, 20) }
 }

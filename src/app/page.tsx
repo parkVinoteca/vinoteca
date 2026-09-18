@@ -51,7 +51,7 @@ export default function App() {
     <div className="min-h-screen flex items-center justify-center bg-parchment">
       <div className="text-center">
         <div className="text-5xl font-serif italic text-gold-400 mb-2 text-gold-glow tracking-wide">Vinoteca</div>
-        <div className="text-[10px] tracking-[0.3em] text-cave-200 uppercase">{t.common.loading}</div>
+        <div className="text-xs tracking-[0.2em] text-cave-200 uppercase">{t.common.loading}</div>
       </div>
     </div>
   )
@@ -111,7 +111,7 @@ export default function App() {
             }`}
           >
             <span className="text-lg">{item.icon}</span>
-            <span className="text-[9px] tracking-wide">{item.label}</span>
+            <span className="text-xs tracking-wide">{item.label}</span>
           </button>
         ))}
       </nav>

@@ -91,7 +91,7 @@ export default function MyCellar({ lang, user, onBack }: Props) {
             <div className="card p-3 mb-3 flex gap-4">
               {[['WS', selected.ws_score], ['WA', selected.wa_score], ['JS', selected.js_score]].map(([k, v]) => v && (
                 <div key={k} className="text-center">
-                  <div className="text-[10px] text-cave-100">{k}</div>
+                  <div className="text-xs text-cave-100">{k}</div>
                   <div className="font-serif text-lg text-gold-300">{v}</div>
                 </div>
               ))}
@@ -150,7 +150,7 @@ export default function MyCellar({ lang, user, onBack }: Props) {
               </div>
               {(selected.answer_producer || selected.answer_wine) && (
                 <div className="mt-3 pt-3 border-t border-gold-900/30">
-                  <div className="text-[10px] text-gold-400 mb-1">{t.tasting.answer}</div>
+                  <div className="text-xs text-gold-700 mb-1">{t.tasting.answer}</div>
                   <div className="font-medium text-gold-200">{selected.answer_producer} {selected.answer_wine}</div>
                 </div>
               )}

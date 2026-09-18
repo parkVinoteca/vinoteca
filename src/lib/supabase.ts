@@ -30,6 +30,18 @@ export type Database = {
         Update: never
         Relationships: []
       }
+      profiles: {
+        Row: { id: string; plan: 'free' | 'paid'; created_at: string; updated_at: string }
+        Insert: never
+        Update: never
+        Relationships: []
+      }
+      subscription_limits: {
+        Row: { plan: 'free' | 'paid'; tasting_monthly_limit: number | null; sommelier_monthly_limit: number }
+        Insert: never
+        Update: never
+        Relationships: []
+      }
       tastings: {
         Row: {
           id: string
@@ -57,6 +69,7 @@ export type Database = {
           acidity: string | null
           tannin: string | null
           tannin_texture: string | null
+          mousse: string | null
           alcohol: string | null
           body: string | null
           flavor_intensity: string | null

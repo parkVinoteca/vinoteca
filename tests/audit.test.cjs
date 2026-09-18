@@ -37,3 +37,17 @@ test('Identical structures and translated grape names can reach 100', () => {
   assert.equal(result.score, 100)
   assert.equal(result.grapeMatched, true)
 })
+
+test('Recent preferences outweigh older records without deleting history', () => {
+  const recent = Array.from({ length: 30 }, () => ({ ...record, body: 'full', acidity: 'high', score: 9 }))
+  const older = Array.from({ length: 100 }, () => ({ ...record, body: 'light', acidity: 'low', score: 9 }))
+  const profile = calculateTasteProfile([...recent, ...older])
+  assert.ok(profile.bodyScore > 2.4)
+  assert.equal(profile.count, 130)
+})
+
+test('Simple-mode stars can build a preference profile without a 10-point score', () => {
+  const profile = calculateTasteProfile([{ ...record, score: null, stars: 5, body: 'full', acidity: 'high' }])
+  assert.equal(profile.avgScore, 10)
+  assert.equal(profile.bodyScore, 5)
+})

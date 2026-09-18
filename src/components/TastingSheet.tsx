@@ -37,6 +37,9 @@ export default function TastingSheet({ lang, user, onBack, blindSessionId, blind
   const cancelAnalysis = () => { analysisRequest.current?.abort(); setAnalyzing(false); setMessage(t.analysis.cancelled) }
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
+  const [entryMode, setEntryMode] = useState<'simple' | 'expert'>(blindSessionId ? 'expert' : 'simple')
+  const [monthlyUsage, setMonthlyUsage] = useState(0)
+  const [monthlyLimit, setMonthlyLimit] = useState<number | null>(10)
 
   // Wine Info
   const [wineName, setWineName] = useState('')
@@ -66,6 +69,7 @@ export default function TastingSheet({ lang, user, onBack, blindSessionId, blind
   const [acidity, setAcidity] = useState('')
   const [tannin, setTannin] = useState('')
   const [tanninTexture, setTanninTexture] = useState('')
+  const [mousse, setMousse] = useState('')
   const [alcohol, setAlcohol] = useState('')
   const [body, setBody] = useState('')
   const [flavorIntensity, setFlavorIntensity] = useState('')
@@ -96,6 +100,42 @@ export default function TastingSheet({ lang, user, onBack, blindSessionId, blind
   const [answerWine, setAnswerWine] = useState('')
 
   const isBlind = !!blindSessionId
+
+  useEffect(() => {
+    if (isBlind) return setEntryMode('expert')
+    const savedMode = localStorage.getItem('vinoteca:tasting-mode')
+    if (savedMode === 'simple' || savedMode === 'expert') setEntryMode(savedMode)
+  }, [isBlind])
+
+  useEffect(() => {
+    const loadUsage = async () => {
+      const tokyoMonth = new Date().toLocaleDateString('sv-SE', { timeZone: 'Asia/Tokyo' }).slice(0, 7)
+      const start = new Date(`${tokyoMonth}-01T00:00:00+09:00`).toISOString()
+      const [{ count }, { data: profile }] = await Promise.all([
+        supabase.from('ai_usage_logs').select('*', { count: 'exact', head: true }).eq('user_id', user.id).eq('feature', 'tasting_sheet').gte('created_at', start),
+        supabase.from('profiles').select('plan').eq('id', user.id).maybeSingle(),
+      ])
+      const plan = profile?.plan || 'free'
+      const { data: limits } = await supabase.from('subscription_limits').select('tasting_monthly_limit').eq('plan', plan).maybeSingle()
+      setMonthlyUsage(count || 0)
+      setMonthlyLimit(limits?.tasting_monthly_limit ?? (plan === 'paid' ? null : 10))
+    }
+    loadUsage().catch(() => {})
+  }, [user.id])
+
+  const changeEntryMode = (mode: 'simple' | 'expert') => {
+    setEntryMode(mode)
+    localStorage.setItem('vinoteca:tasting-mode', mode)
+  }
+
+  const selectWineType = (next: string) => {
+    const value = wineType === next ? '' : next
+    setWineType(value)
+    const allowed = value ? t.appearance.colorHues[value as keyof typeof t.appearance.colorHues] : []
+    if (colorHue && !allowed.includes(colorHue)) setColorHue('')
+    if (value !== 'red') { setTannin(''); setTanninTexture('') }
+    if (value !== 'sparkling') setMousse('')
+  }
 
   const handlePhotoUpload = async (file: File) => {
     if (!file.type.startsWith('image/') || file.size > 20 * 1024 * 1024) {
@@ -181,6 +221,7 @@ export default function TastingSheet({ lang, user, onBack, blindSessionId, blind
         acidity: acidity || null,
         tannin: tannin || null,
         tannin_texture: tanninTexture || null,
+        mousse: mousse || null,
         alcohol: alcohol || null,
         body: body || null,
         flavor_intensity: flavorIntensity || null,
@@ -200,7 +241,7 @@ export default function TastingSheet({ lang, user, onBack, blindSessionId, blind
         deduction_notes: isBlind ? deductionNotes || null : null,
         answer_producer: isBlind ? answerProducer || null : null,
         answer_wine: isBlind ? answerWine || null : null,
-        score: score || null,
+        score: entryMode === 'expert' || isBlind ? score || null : null,
         stars: stars || null,
         palate_notes: palateNotes || null,
         notes: notes || null,
@@ -217,7 +258,10 @@ export default function TastingSheet({ lang, user, onBack, blindSessionId, blind
         if (onSaved) onSaved(); else onBack()
       }, 1500)
     } catch (e) {
-      setMessage(t.common.error)
+      const quotaReached = typeof e === 'object' && e !== null && 'message' in e && String(e.message).includes('tasting_limit')
+      setMessage(quotaReached
+        ? (lang === 'ja' ? '今月のテイスティング作成上限に達しました。' : '이번 달 테이스팅 작성 한도에 도달했습니다.')
+        : t.common.error)
     } finally {
       setSaving(false)
       saveLock.current = false
@@ -227,7 +271,7 @@ export default function TastingSheet({ lang, user, onBack, blindSessionId, blind
   const ScaleRow = ({ label, hint, options, value, onChange }: any) => (
     <div className="mb-4">
       <div className="text-xs font-medium text-ink mb-0.5">{label}</div>
-      {hint && <div className="text-[10px] text-cave-100 mb-1">{hint}</div>}
+      {hint && <div className="text-xs text-cave-100 mb-1">{hint}</div>}
       <div className="flex border border-cave-400/30 overflow-hidden">
         {options.map((opt: string) => (
           <button
@@ -275,6 +319,37 @@ export default function TastingSheet({ lang, user, onBack, blindSessionId, blind
     </div>
   )
 
+  const SimpleRange = ({ label, hint, display, stored, value, onChange }: {
+    label: string; hint?: string; display: string[]; stored: string[]; value: string; onChange: (value: string) => void
+  }) => {
+    const current = Math.max(0, stored.indexOf(value))
+    return <div className="mb-5">
+      <div className="flex justify-between gap-3 mb-1"><label className="text-sm font-medium text-ink">{label}</label><span className="text-sm font-medium text-gold-700">{display[current]}</span></div>
+      {hint && <p className="text-xs text-cave-100 mb-2">{hint}</p>}
+      <input type="range" min="0" max="4" step="1" value={current} onChange={e => onChange(stored[Number(e.target.value)])}
+        className="simple-range w-full" aria-label={label} aria-valuetext={display[current]} />
+      <div className="flex justify-between text-xs text-cave-100 mt-1"><span>{display[0]}</span><span>{display[4]}</span></div>
+    </div>
+  }
+
+  const hueHex: Record<string, string> = {
+    'レモングリーン':'#DDE26A','레몬 그린':'#DDE26A','レモン':'#F0E68C','레몬':'#F0E68C','ゴールド':'#D4A017','골드':'#D4A017','琥珀':'#B8860B','앰버':'#B8860B',
+    'ピンク':'#F4A6B0','핑크':'#F4A6B0','ピンクオレンジ':'#F5A97F','핑크 오렌지':'#F5A97F','オレンジ':'#E8894A','오렌지':'#E8894A','オニオンスキン':'#D99A7C','어니언 스킨':'#D99A7C',
+    'パープル':'#5B0E3C','퍼플':'#5B0E3C','ルビー':'#9B111E','루비':'#9B111E','ガーネット':'#7B2331','가넷':'#7B2331','トーニー':'#A0522D','토니':'#A0522D',
+  }
+  const colorOptions = (wineType ? t.appearance.colorHues[wineType as keyof typeof t.appearance.colorHues] : []) || []
+  const DepthSelector = ({ simple = false }: { simple?: boolean }) => {
+    const labels = simple
+      ? (lang === 'ja' ? ['とても淡い','淡い','ふつう','濃い','とても濃い'] : ['매우 연함','연함','보통','진함','매우 진함'])
+      : t.appearance.depthLevels
+    const base = hueHex[colorHue] || '#9B111E'
+    const opacity = [0.25, 0.45, 0.65, 0.85, 1]
+    return <div className="mb-5"><div className="text-sm font-medium text-ink mb-2">{simple ? (lang === 'ja' ? '色の濃さ' : '색의 진하기') : t.tasting.colorDepth}</div>
+      <div className="grid grid-cols-5 gap-1.5">{labels.map((label, index) => <button key={label} onClick={() => setColorDepth(t.appearance.depthLevels[index])} aria-pressed={colorDepth === t.appearance.depthLevels[index]} className={`min-h-20 rounded-lg border px-1 py-2 text-xs ${colorDepth === t.appearance.depthLevels[index] ? 'border-gold-500 ring-2 ring-gold-200' : 'border-cave-400'}`}>
+        <span className="mx-auto mb-2 block h-8 w-8 rounded-full border border-black/10" style={{ backgroundColor: `${base}${Math.round(opacity[index] * 255).toString(16).padStart(2,'0')}` }} />{label}
+      </button>)}</div></div>
+  }
+
   return (
     <div className="max-w-lg mx-auto">
       {analyzing && <AnalysisProgress imageUrl={labelImageUrl} lang={lang} stage={analysisStage} mode={isBlind ? 'upload' : 'label'} onCancel={cancelAnalysis} />}
@@ -286,16 +361,14 @@ export default function TastingSheet({ lang, user, onBack, blindSessionId, blind
         <div className="text-xs font-medium tracking-widest uppercase text-gold-300">
           {isBlind ? `${t.blind.wine} ${blindWineNumber}` : t.tasting.normal}
         </div>
-        <button
-          onClick={handleSave}
-          disabled={saving || saved || analyzing}
-          className="btn-primary py-1.5 px-4 text-[10px]"
-        >
-          {saved ? '✓' : saving ? '...' : t.tasting.save}
-        </button>
+        <span className="w-16" aria-hidden="true" />
       </div>
 
-      <div className="p-4 space-y-6">
+      <div className="p-4 pb-28 space-y-6">
+
+        <div className={`rounded-lg border px-3 py-2 text-sm ${monthlyLimit !== null && monthlyUsage >= monthlyLimit - 2 ? 'border-gold-500 bg-gold-50 text-gold-800' : 'border-cave-400 bg-white text-cave-50'}`}>
+          {lang === 'ja' ? '今月の作成回数' : '이번 달 작성 횟수'}: {monthlyUsage} / {monthlyLimit ?? (lang === 'ja' ? '無制限' : '무제한')}
+        </div>
 
         {/* Label Photo */}
         <div>
@@ -346,7 +419,7 @@ export default function TastingSheet({ lang, user, onBack, blindSessionId, blind
               >
                 <div className="text-2xl mb-1">📷</div>
                 <div className="text-xs">{t.tasting.takePhoto}</div>
-                {!isBlind && <div className="text-[9px] text-gold-500/60 mt-1">AI {t.tasting.autoFilled}</div>}
+                {!isBlind && <div className="text-xs text-gold-700 mt-1">AI {t.tasting.autoFilled}</div>}
               </button>
               <button
                 onClick={() => uploadRef.current?.click()}
@@ -372,8 +445,9 @@ export default function TastingSheet({ lang, user, onBack, blindSessionId, blind
                 { label: t.tasting.country, value: country, onChange: setCountry },
                 { label: t.tasting.grapeVariety, value: grapeVariety, onChange: (value: string) => { setGrapeVariety(value); setGrapeEdited(true) } },
               ].map(field => (
-                <div key={field.label}>
-                  <label className="text-[10px] tracking-widest uppercase text-gold-400 mb-0.5 block">{field.label}</label>
+                <div key={field.label} className="grid grid-cols-[88px_minmax(0,1fr)] items-start gap-3">
+                  <label className="pt-3 text-xs tracking-wide text-cave-100">{field.label}</label>
+                  <div>
                   <input
                     aria-label={field.label}
                     aria-describedby={field.label === t.tasting.grapeVariety && grapeResearch ? 'grape-research-note' : undefined}
@@ -393,17 +467,18 @@ export default function TastingSheet({ lang, user, onBack, blindSessionId, blind
                       {grapeResearch.source && <a href={grapeResearch.source} target="_blank" rel="noopener noreferrer" className="text-gold-300 underline">{t.analysis.source} ↗</a>}
                     </>}
                   </div>}
+                  </div>
                 </div>
               ))}
 
               {/* Wine Type */}
               <div>
-                <label className="text-[10px] tracking-widest uppercase text-gold-400 mb-1 block">{lang === 'ja' ? 'タイプ' : '타입'}</label>
+                <label className="text-xs tracking-wider uppercase text-gold-700 mb-1 block">{lang === 'ja' ? 'タイプ' : '타입'}</label>
                 <div className="flex flex-wrap gap-1.5">
                   {Object.entries(t.wineType).map(([key, label]) => (
                     <button
                       key={key}
-                      onClick={() => setWineType(wineType === key ? '' : key)}
+                      onClick={() => selectWineType(key)}
                       className={`chip ${wineType === key ? 'chip-on' : ''}`}
                     >
                       {label}
@@ -420,7 +495,7 @@ export default function TastingSheet({ lang, user, onBack, blindSessionId, blind
                   { label: 'JS', value: jsScore, onChange: setJsScore },
                 ].map(s => (
                   <div key={s.label}>
-                    <label className="text-[10px] tracking-widest uppercase text-gold-400 mb-0.5 block">{s.label}</label>
+                    <label className="text-xs tracking-wider uppercase text-gold-700 mb-1 block">{s.label}</label>
                     <input
                       type="number"
                       value={s.value}
@@ -436,11 +511,40 @@ export default function TastingSheet({ lang, user, onBack, blindSessionId, blind
           </div>
         )}
 
+        {!isBlind && <div className="sticky top-[106px] z-30 rounded-xl border border-cave-400 bg-white p-1 shadow-sm" role="group" aria-label={lang === 'ja' ? '入力モード' : '입력 모드'}>
+          <div className="grid grid-cols-2 gap-1">
+            <button onClick={() => changeEntryMode('simple')} aria-pressed={entryMode === 'simple'} className={`min-h-11 rounded-lg text-sm font-medium ${entryMode === 'simple' ? 'bg-gold-500 text-white' : 'text-cave-100'}`}>{lang === 'ja' ? 'かんたん入力' : '간단 입력'}</button>
+            <button onClick={() => changeEntryMode('expert')} aria-pressed={entryMode === 'expert'} className={`min-h-11 rounded-lg text-sm font-medium ${entryMode === 'expert' ? 'bg-gold-500 text-white' : 'text-cave-100'}`}>{lang === 'ja' ? '専門的' : '전문 입력'}</button>
+          </div>
+        </div>}
+
+        {entryMode === 'simple' && !isBlind && <div className="card p-4">
+          <div className="section-title">{lang === 'ja' ? 'かんたんテイスティング' : '간단 테이스팅'}</div>
+          {!wineType && <p className="mb-4 rounded-lg bg-gold-50 p-3 text-sm text-gold-800">{lang === 'ja' ? '先にワインタイプを選ぶと、色と渋みの項目が合った内容になります。' : '먼저 와인 유형을 선택하면 색과 떫은맛 항목이 알맞게 표시됩니다.'}</p>}
+          {colorOptions.length > 0 && <div className="mb-5">
+            <div className="text-sm font-medium text-ink mb-2">{lang === 'ja' ? 'ワインの色' : '와인 색'}</div>
+            <div className="grid grid-cols-4 gap-2">{colorOptions.map(option => <button key={option} onClick={() => setColorHue(option)} aria-pressed={colorHue === option} className={`min-h-20 rounded-lg border p-2 text-xs ${colorHue === option ? 'border-gold-500 ring-2 ring-gold-200' : 'border-cave-400'}`}><span className="mx-auto mb-2 block h-8 w-8 rounded-full border border-black/10" style={{backgroundColor:hueHex[option]}} />{option}</button>)}</div>
+          </div>}
+          <DepthSelector simple />
+          <SimpleRange label={lang === 'ja' ? '香りの強さ' : '향의 강도'} display={lang === 'ja' ? ['とても控えめ','控えめ','ふつう','しっかり','とても強い'] : ['매우 은은함','은은함','보통','뚜렷함','매우 강함']} stored={lang === 'ja' ? ['非常に弱い',...t.nose.intensityLevels] : ['매우 약함',...t.nose.intensityLevels]} value={noseIntensity} onChange={setNoseIntensity} />
+          <div className="mb-5"><div className="text-sm font-medium text-ink mb-2">{lang === 'ja' ? 'どんな香り？' : '어떤 향인가요?'}</div><ChipGroup options={lang === 'ja' ? ['🍋 フルーツ系','🌸 お花系','🌿 ハーブ系','🍯 甘い香り','🥖 パン・ナッツ系','🪵 樽・スパイス系','🍄 土・きのこ系'] : ['🍋 과일 계열','🌸 꽃 계열','🌿 허브 계열','🍯 달콤한 향','🥖 빵·견과 계열','🪵 오크·향신료 계열','🍄 흙·버섯 계열']} selected={aromas} onToggle={toggleAroma} /></div>
+          <SimpleRange label={lang === 'ja' ? '甘さ' : '단맛'} display={lang === 'ja' ? ['甘くない','ほんのり','ふつう','甘め','とても甘い'] : ['달지 않음','은은함','보통','달콤함','매우 달콤함']} stored={[t.palate.sweetnessLevels[0],t.palate.sweetnessLevels[1],t.palate.sweetnessLevels[3],t.palate.sweetnessLevels[4],t.palate.sweetnessLevels[5]]} value={sweetness} onChange={setSweetness} />
+          <SimpleRange label={lang === 'ja' ? '酸っぱさ' : '산미'} display={lang === 'ja' ? ['とてもやさしい','やさしい','ふつう','さわやか','とてもさわやか'] : ['매우 부드러움','부드러움','보통','상쾌함','매우 상쾌함']} stored={t.palate.acidityLevels} value={acidity} onChange={setAcidity} />
+          {wineType === 'red' && <SimpleRange label={lang === 'ja' ? '渋み' : '떫은맛'} display={lang === 'ja' ? ['ほとんど無い','少ない','ふつう','しっかり','とても強い'] : ['거의 없음','적음','보통','뚜렷함','매우 강함']} stored={t.palate.tanninLevels} value={tannin} onChange={setTannin} />}
+          {wineType === 'sparkling' && <div className="mb-5"><div className="text-sm font-medium text-ink mb-2">{lang === 'ja' ? '泡の感じ' : '거품의 느낌'}</div><ChipGroup options={lang === 'ja' ? ['繊細','クリーミー','荒い'] : ['섬세함','크리미함','거침']} selected={mousse} onToggle={setMousse} single /></div>}
+          <SimpleRange label={lang === 'ja' ? '飲み口の重さ' : '마실 때의 무게감'} display={lang === 'ja' ? ['とても軽い','軽い','ふつう','重い','とても重い'] : ['매우 가벼움','가벼움','보통','무거움','매우 무거움']} stored={t.palate.bodyLevels} value={body} onChange={setBody} />
+          <div className="mb-5"><div className="text-sm font-medium text-ink mb-2">{lang === 'ja' ? '好きですか？' : '마음에 드나요?'}</div><div className="flex gap-3">{[1,2,3,4,5].map(n=><button key={n} aria-label={`${n} / 5`} aria-pressed={stars===n} onClick={()=>setStars(n)} className={`text-3xl ${n<=stars?'text-gold-500':'text-cave-400'}`}>★</button>)}</div></div>
+          <div className="mb-5"><div className="text-sm font-medium text-ink mb-2">{lang === 'ja' ? '飲み頃だと思う？' : '마시기 좋은 시기인가요?'}</div><div className="grid grid-cols-3 gap-2">{(lang === 'ja' ? [['まだ早い',t.conclusions.readinessLevels[0]],['ちょうど良い',t.conclusions.readinessLevels[1]],['少し過ぎた',t.conclusions.readinessLevels[4]]] : [['아직 이름',t.conclusions.readinessLevels[0]],['지금 좋음',t.conclusions.readinessLevels[1]],['조금 지남',t.conclusions.readinessLevels[4]]]).map(([label,stored])=><button key={label} onClick={()=>setReadiness(readiness===stored?'':stored)} aria-pressed={readiness===stored} className={`min-h-11 rounded-full border px-2 text-sm ${readiness===stored?'border-gold-500 bg-gold-50 text-gold-700':'border-cave-400 bg-white text-cave-50'}`}>{label}</button>)}</div></div>
+          <label className="text-sm font-medium text-ink">{lang === 'ja' ? 'ひとことメモ（任意）' : '한 줄 메모(선택)'}</label><textarea value={notes} onChange={e=>setNotes(e.target.value)} className="input-field mt-2 min-h-24 resize-none" />
+          <button onClick={()=>changeEntryMode('expert')} className="mt-5 w-full text-sm text-gold-700 underline underline-offset-4">{lang === 'ja' ? '専門的モードに切り替える' : '전문 입력으로 전환'}</button>
+        </div>}
+
+        {entryMode === 'expert' && <>
         {/* ① Appearance */}
         <div>
           <div className="section-title">① {t.tasting.appearance}</div>
-          <ScaleRow label={t.tasting.colorHue} options={t.appearance.colorHues} value={colorHue} onChange={setColorHue} />
-          <ScaleRow label={t.tasting.colorDepth} options={t.appearance.depthLevels} value={colorDepth} onChange={setColorDepth} />
+          {colorOptions.length ? <div className="mb-4"><div className="text-sm font-medium text-ink mb-2">{t.tasting.colorHue}</div><div className="grid grid-cols-4 gap-2">{colorOptions.map(option=><button key={option} onClick={()=>setColorHue(option)} aria-pressed={colorHue===option} className={`rounded-lg border p-2 text-xs ${colorHue===option?'border-gold-500 ring-2 ring-gold-200':'border-cave-400'}`}><span className="mx-auto mb-1 block h-7 w-7 rounded-full border border-black/10" style={{backgroundColor:hueHex[option]}} />{option}</button>)}</div></div> : <p className="mb-4 text-sm text-cave-100">{lang === 'ja' ? 'ワインタイプを選ぶと色調を選べます。' : '와인 유형을 선택하면 색조를 고를 수 있습니다.'}</p>}
+          <DepthSelector />
           <ScaleRow label={t.tasting.clarity} options={t.appearance.clarityLevels} value={clarity} onChange={setClarity} />
           <ScaleRow label={t.tasting.viscosity} options={t.appearance.viscosityLevels} value={viscosity} onChange={setViscosity} />
         </div>
@@ -490,11 +594,12 @@ export default function TastingSheet({ lang, user, onBack, blindSessionId, blind
           <div className="section-title">③ {t.tasting.palate}</div>
           <ScaleRow label={t.tasting.sweetness} hint={lang === 'ja' ? '口に感じる甘さ' : '입에서 느끼는 단맛'} options={t.palate.sweetnessLevels} value={sweetness} onChange={setSweetness} />
           <ScaleRow label={t.tasting.acidity} hint={lang === 'ja' ? '唾液が多く出れば高い' : '침이 많이 나오면 높음'} options={t.palate.acidityLevels} value={acidity} onChange={setAcidity} />
-          <ScaleRow label={t.tasting.tannin} hint={lang === 'ja' ? '歯茎の乾燥感（赤のみ）' : '잇몸 건조감 (레드만)'} options={t.palate.tanninLevels} value={tannin} onChange={setTannin} />
+          {wineType === 'red' && <><ScaleRow label={t.tasting.tannin} hint={lang === 'ja' ? '歯茎の乾燥感' : '잇몸이 마르는 느낌'} options={t.palate.tanninLevels} value={tannin} onChange={setTannin} />
           <div className="mb-4">
             <div className="text-xs font-medium text-ink mb-1">{t.tasting.tanninTexture}</div>
             <ChipGroup options={t.palate.tanninTextures} selected={tanninTexture} onToggle={setTanninTexture} single />
-          </div>
+          </div></>}
+          {wineType === 'sparkling' && <div className="mb-4"><div className="text-sm font-medium text-ink mb-2">{lang === 'ja' ? 'ムース（泡の質感）' : '무스(거품 질감)'}</div><ChipGroup options={lang === 'ja' ? ['繊細','クリーミー','荒い'] : ['섬세함','크리미함','거침']} selected={mousse} onToggle={setMousse} single /></div>}
           <ScaleRow label={t.tasting.alcohol} hint={lang === 'ja' ? '喉に感じる熱さ' : '목에서 느끼는 열감'} options={t.palate.alcoholLevels} value={alcohol} onChange={setAlcohol} />
           <ScaleRow label={t.tasting.body} hint={lang === 'ja' ? '口の中の重量感' : '입 안의 무게감'} options={t.palate.bodyLevels} value={body} onChange={setBody} />
           <ScaleRow label={t.tasting.flavorIntensity} options={t.palate.intensityLevels} value={flavorIntensity} onChange={setFlavorIntensity} />
@@ -508,7 +613,7 @@ export default function TastingSheet({ lang, user, onBack, blindSessionId, blind
         </div>
 
         {/* ④ Conclusions */}
-        <div>
+        {(entryMode === 'expert' || isBlind) && <div>
           <div className="section-title">④ {t.tasting.conclusions}</div>
 
           {/* BLIC */}
@@ -521,8 +626,8 @@ export default function TastingSheet({ lang, user, onBack, blindSessionId, blind
             ].map(b => (
               <div key={b.key} className="card p-3">
                 <div className="font-serif text-lg text-gold-300">{b.key}</div>
-                <div className="text-[10px] text-cave-50 font-medium">{b.label}</div>
-                <div className="text-[9px] text-cave-100 mb-2">{b.hint}</div>
+                <div className="text-xs text-cave-50 font-medium">{b.label}</div>
+                <div className="text-xs text-cave-100 mb-2">{b.hint}</div>
                 <BlicDots value={b.val} onChange={b.set} />
               </div>
             ))}
@@ -530,7 +635,8 @@ export default function TastingSheet({ lang, user, onBack, blindSessionId, blind
 
           <ScaleRow label={lang === 'ja' ? 'WSET品質等級' : 'WSET 품질 등급'} options={t.conclusions.qualityLevels} value={quality} onChange={setQuality} />
           <ScaleRow label={lang === 'ja' ? '飲み頃' : '음용 시기'} options={t.conclusions.readinessLevels} value={readiness} onChange={setReadiness} />
-        </div>
+        </div>}
+        </>}
 
         {/* Blind Deduction */}
         {isBlind && (
@@ -575,11 +681,11 @@ export default function TastingSheet({ lang, user, onBack, blindSessionId, blind
                 <div className="text-xs font-medium text-gold-300 mb-3 tracking-widest uppercase">{t.tasting.answer}</div>
                 <div className="space-y-2">
                   <div>
-                    <label className="text-[10px] text-gold-400">{t.tasting.answerProducer}</label>
+                    <label className="text-xs text-gold-700">{t.tasting.answerProducer}</label>
                     <input value={answerProducer} onChange={e => setAnswerProducer(e.target.value)} className="input-field" />
                   </div>
                   <div>
-                    <label className="text-[10px] text-gold-400">{t.tasting.answerWine}</label>
+                    <label className="text-xs text-gold-700">{t.tasting.answerWine}</label>
                     <input value={answerWine} onChange={e => setAnswerWine(e.target.value)} className="input-field" />
                   </div>
                 </div>
@@ -589,7 +695,7 @@ export default function TastingSheet({ lang, user, onBack, blindSessionId, blind
         )}
 
         {/* Score */}
-        <div>
+        {(entryMode === 'expert' || isBlind) && <div>
           <div className="section-title">{t.tasting.score}</div>
           <div className="bg-gradient-to-b from-gold-500 to-gold-600 text-white p-6 text-center">
             <div className="font-serif text-7xl font-bold leading-none">{score}</div>
@@ -605,7 +711,7 @@ export default function TastingSheet({ lang, user, onBack, blindSessionId, blind
               ))}
             </div>
           </div>
-        </div>
+        </div>}
 
         {/* Food Pairing */}
         <div>
@@ -629,7 +735,7 @@ export default function TastingSheet({ lang, user, onBack, blindSessionId, blind
         </div>
 
         {/* Save Button */}
-        <button onClick={handleSave} disabled={saving || saved || analyzing} className="btn-primary w-full py-4 text-sm">
+        <button onClick={handleSave} disabled={saving || saved || analyzing} className="btn-primary fixed bottom-[68px] left-1/2 z-40 w-[calc(100%-2rem)] max-w-[480px] -translate-x-1/2 py-4 text-sm shadow-lg">
           {saved ? `✓ ${t.tasting.saved}` : saving ? t.tasting.saving : t.tasting.save}
         </button>
 

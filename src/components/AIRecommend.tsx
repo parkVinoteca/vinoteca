@@ -6,6 +6,7 @@ import { calculateTasteProfile, calculateMatchScore, buildMatchReason, TastingRe
 import { analyzeImage } from '@/lib/aiClient'
 import AnalysisProgress, { type AnalysisStage } from './AnalysisProgress'
 import ImageCropModal from './ImageCropModal'
+import { TASTE_PROFILE_MIN_RECORDS, TASTE_PROFILE_RECORD_LIMIT } from '@/lib/productConfig'
 import type { User } from '@supabase/supabase-js'
 
 interface Props { lang: Language; user: User; onBack: () => void }
@@ -25,6 +26,7 @@ export default function AIRecommend({ lang, user, onBack }: Props) {
   const [redCount, setRedCount] = useState(0)
   const [whiteCount, setWhiteCount] = useState(0)
   const [usageThisMonth, setUsageThisMonth] = useState(0)
+  const [usageLimit, setUsageLimit] = useState(5)
   const [cropFile, setCropFile] = useState<File | null>(null)
 
   useEffect(() => { loadStats().catch(() => setError(t.common.error)) }, [user.id])
@@ -34,7 +36,7 @@ export default function AIRecommend({ lang, user, onBack }: Props) {
       .from('tastings')
       .select('wine_type')
       .eq('user_id', user.id)
-      .not('score', 'is', null)
+      .or('score.not.is.null,stars.not.is.null')
 
     if (tastings) {
       const isRed = (v: string | null) => ['red', '레드', '赤ワイン', '赤'].includes(v || '')
@@ -46,15 +48,16 @@ export default function AIRecommend({ lang, user, onBack }: Props) {
     const tokyoMonth = new Date().toLocaleDateString('sv-SE', { timeZone: 'Asia/Tokyo' }).slice(0, 7)
     const startOfMonth = new Date(`${tokyoMonth}-01T00:00:00+09:00`)
 
-    const { count, error: usageError } = await supabase
-      .from('ai_usage_logs')
-      .select('*', { count: 'exact', head: true })
-      .eq('user_id', user.id)
-      .eq('feature', 'sommelier')
-      .gte('created_at', startOfMonth.toISOString())
+    const [{ count, error: usageError }, { data: profile }] = await Promise.all([
+      supabase.from('ai_usage_logs').select('*', { count: 'exact', head: true }).eq('user_id', user.id).eq('feature', 'sommelier').gte('created_at', startOfMonth.toISOString()),
+      supabase.from('profiles').select('plan').eq('id', user.id).maybeSingle(),
+    ])
 
     if (usageError) throw new Error(t.common.error)
+    const plan = profile?.plan || 'free'
+    const { data: limits } = await supabase.from('subscription_limits').select('sommelier_monthly_limit').eq('plan', plan).maybeSingle()
     setUsageThisMonth(count || 0)
+    setUsageLimit(limits?.sommelier_monthly_limit || (plan === 'paid' ? 50 : 5))
   }
 
   const analyzeWine = async (cropped: { base64: string; mediaType: string }) => {
@@ -67,30 +70,27 @@ export default function AIRecommend({ lang, user, onBack }: Props) {
     setResult(null)
     setError('')
     try {
-      const canMatch = redCount >= 10 && whiteCount >= 10
-
-      // Compare only the same wine type; red and white structures must not be mixed.
-
       try {
         const aiResult = await analyzeImage('sommelier', cropped, lang, controller.signal)
         if (controller.signal.aborted) return
         setAnalysisStage('organize')
         let tasteProfile = null
+        const relevantCount = aiResult.wineType === 'red' ? redCount : aiResult.wineType === 'white' ? whiteCount : 0
+        const canMatch = relevantCount >= TASTE_PROFILE_MIN_RECORDS
         if (canMatch && aiResult.wineType) {
-          const records: TastingRecord[] = []
-          for (let from = 0; ; from += 500) {
-            const { data, error } = await supabase.from('tastings')
-              .select('wine_type, body, tannin, acidity, alcohol, grape_variety, country, region, score')
-              .eq('user_id', user.id).eq('wine_type', aiResult.wineType).not('score', 'is', null)
-              .order('created_at').order('id').range(from, from + 499)
-            if (error) throw new Error(t.common.error)
-            records.push(...(data || [])); if (!data || data.length < 500) break
-          }
+          const { data, error } = await supabase.from('tastings')
+            .select('wine_type, body, tannin, acidity, alcohol, grape_variety, country, region, score, stars, created_at')
+            .eq('user_id', user.id).eq('wine_type', aiResult.wineType)
+            .or('score.not.is.null,stars.not.is.null')
+            .order('created_at', { ascending: false }).order('id', { ascending: false })
+            .limit(TASTE_PROFILE_RECORD_LIMIT)
+          if (error) throw new Error(t.common.error)
+          const records = (data || []) as TastingRecord[]
           tasteProfile = calculateTasteProfile(records)
         }
 
         // 매칭 점수는 코드가 직접 계산 (AI 재호출 없음, 무료, 즉시)
-        let finalResult: any = { ...aiResult, matchScore: null, matchReason: '' }
+        let finalResult: any = { ...aiResult, matchScore: null, matchReason: '', matchRecordCount: relevantCount }
 
         if (canMatch && tasteProfile && aiResult.bodyLevel !== undefined) {
           const matchResult = calculateMatchScore(tasteProfile, {
@@ -106,8 +106,8 @@ export default function AIRecommend({ lang, user, onBack }: Props) {
           finalResult.matchReason = buildMatchReason(lang, matchResult)
         } else {
           finalResult.matchReason = lang === 'ja'
-            ? `同じタイプの好みの記録が不足しています（赤${redCount}/10本、白${whiteCount}/10本必要）。7点以上のワインの構造データも必要です。`
-            : `같은 유형의 선호 기록이 부족합니다 (레드 ${redCount}/10병, 화이트 ${whiteCount}/10병 필요). 7점 이상 평가한 와인의 구조 정보도 필요합니다.`
+            ? `このタイプの好みの記録が不足しています（赤${redCount}/3本、白${whiteCount}/3本）。7点以上または★4以上の構造データが必要です。`
+            : `이 유형의 선호 기록이 부족합니다 (레드 ${redCount}/3병, 화이트 ${whiteCount}/3병). 7점 이상 또는 ★4 이상 기록의 구조 정보가 필요합니다.`
         }
 
         if (controller.signal.aborted) return
@@ -141,44 +141,52 @@ export default function AIRecommend({ lang, user, onBack }: Props) {
     score >= 80 ? 'text-green-400' : score >= 60 ? 'text-yellow-400' : 'text-red-400'
   const matchBg = (score: number) =>
     score >= 80 ? 'bg-green-500' : score >= 60 ? 'bg-yellow-500' : 'bg-red-400'
+  const countryFlag = (country: string | null | undefined) => {
+    const normalized = (country || '').toLowerCase()
+    const flags: Record<string, string> = { france: '🇫🇷', フランス: '🇫🇷', 프랑스: '🇫🇷', italy: '🇮🇹', イタリア: '🇮🇹', 이탈리아: '🇮🇹', spain: '🇪🇸', スペイン: '🇪🇸', 스페인: '🇪🇸', japan: '🇯🇵', 日本: '🇯🇵', 일본: '🇯🇵', usa: '🇺🇸', 'united states': '🇺🇸', アメリカ: '🇺🇸', 미국: '🇺🇸', australia: '🇦🇺', オーストラリア: '🇦🇺', 호주: '🇦🇺', germany: '🇩🇪', ドイツ: '🇩🇪', 독일: '🇩🇪' }
+    return flags[normalized] || ''
+  }
 
-  const canMatch = redCount >= 10 && whiteCount >= 10
+  const canMatch = redCount >= TASTE_PROFILE_MIN_RECORDS || whiteCount >= TASTE_PROFILE_MIN_RECORDS
 
   return (
     <div className="max-w-lg mx-auto p-4">
       <div className="section-title">{t.recommend.title}</div>
       <div className="text-sm text-gold-200 mb-1">{t.recommend.subtitle}</div>
-      <div className="text-[11px] text-cave-200 mb-4">💡 {t.recommend.infoOnly}</div>
+      <div className="text-xs text-cave-200 mb-4">💡 {t.recommend.infoOnly}</div>
 
       {!canMatch && (
         <div className="card p-3 mb-4">
-          <div className="text-[10px] text-gold-400 tracking-widest uppercase mb-2">
+          <div className="text-xs text-gold-700 tracking-wider uppercase mb-2">
             {lang === 'ja' ? '相性診断の解放条件' : '취향 진단 해금 조건'}
           </div>
           <div className="space-y-2">
             <div>
-              <div className="flex justify-between text-[11px] text-cave-100 mb-1">
+              <div className="flex justify-between text-xs text-cave-100 mb-1">
                 <span>{lang === 'ja' ? '赤ワイン' : '레드 와인'}</span>
-                <span>{redCount}/10</span>
+                <span>{redCount}/3</span>
               </div>
               <div className="h-1.5 bg-cave-600/50 rounded-full overflow-hidden">
-                <div className="h-full bg-gradient-to-r from-gold-500 to-gold-600 rounded-full transition-all" style={{ width: `${Math.min(redCount / 10 * 100, 100)}%` }} />
+                <div className="h-full bg-gradient-to-r from-gold-500 to-gold-600 rounded-full transition-all" style={{ width: `${Math.min(redCount / 3 * 100, 100)}%` }} />
               </div>
             </div>
             <div>
-              <div className="flex justify-between text-[11px] text-cave-100 mb-1">
+              <div className="flex justify-between text-xs text-cave-100 mb-1">
                 <span>{lang === 'ja' ? '白ワイン' : '화이트 와인'}</span>
-                <span>{whiteCount}/10</span>
+                <span>{whiteCount}/3</span>
               </div>
               <div className="h-1.5 bg-cave-600/50 rounded-full overflow-hidden">
-                <div className="h-full bg-gradient-to-r from-gold-500 to-gold-600 rounded-full transition-all" style={{ width: `${Math.min(whiteCount / 10 * 100, 100)}%` }} />
+                <div className="h-full bg-gradient-to-r from-gold-500 to-gold-600 rounded-full transition-all" style={{ width: `${Math.min(whiteCount / 3 * 100, 100)}%` }} />
               </div>
             </div>
           </div>
         </div>
       )}
 
-      <p className="text-xs text-cave-100 mb-3">{lang === 'ja' ? 'AIソムリエは1日20回・月100回まで。解析開始後の失敗も利用回数に含まれます。' : 'AI 소믈리에는 하루 20회·월 100회까지입니다. 분석 시작 후 실패한 요청도 횟수에 포함됩니다.'}</p>
+      <p className={`text-sm mb-3 ${usageThisMonth >= usageLimit - 1 ? 'text-gold-700 font-medium' : 'text-cave-100'}`}>
+        {lang === 'ja' ? `今月の利用回数: ${usageThisMonth} / ${usageLimit}回` : `이번 달 사용 횟수: ${usageThisMonth} / ${usageLimit}회`}
+        <span className="block text-xs font-normal mt-1">{lang === 'ja' ? '解析開始後の失敗も利用回数に含まれます。' : '분석 시작 후 실패한 요청도 횟수에 포함됩니다.'}</span>
+      </p>
       <input ref={fileRef} type="file" accept="image/*" capture="environment" className="hidden"
         onChange={e => { const file = e.target.files?.[0]; e.target.value = ""; if (file) setCropFile(file) }} />
       <input ref={uploadRef} type="file" accept="image/*" className="hidden"
@@ -194,12 +202,12 @@ export default function AIRecommend({ lang, user, onBack }: Props) {
       )}
 
       <div className="grid grid-cols-2 gap-3 mb-4">
-        <button onClick={() => fileRef.current?.click()} disabled={analyzing}
+        <button onClick={() => fileRef.current?.click()} disabled={analyzing || usageThisMonth >= usageLimit}
           className="border-2 border-dashed border-gold-900/40 py-8 text-center text-cave-100 hover:border-gold-500/50 transition-colors rounded-lg disabled:opacity-50">
           <div className="text-2xl mb-1">📷</div>
           <div className="text-xs">{lang === 'ja' ? '撮影' : '촬영'}</div>
         </button>
-        <button onClick={() => uploadRef.current?.click()} disabled={analyzing}
+        <button onClick={() => uploadRef.current?.click()} disabled={analyzing || usageThisMonth >= usageLimit}
           className="border-2 border-dashed border-gold-900/40 py-8 text-center text-cave-100 hover:border-gold-500/50 transition-colors rounded-lg disabled:opacity-50">
           <div className="text-2xl mb-1">🖼️</div>
           <div className="text-xs">{lang === 'ja' ? 'アップロード' : '업로드'}</div>
@@ -220,23 +228,22 @@ export default function AIRecommend({ lang, user, onBack }: Props) {
 
           <div className="card p-4">
             <div className="font-serif italic text-xl text-gold-200">{result.wineName}</div>
-            {result.producer && <div className="text-sm text-cave-100">{result.producer}</div>}
-            <div className="flex flex-wrap gap-1.5 mt-2">
-              {[result.vintage, result.region, result.country].filter(Boolean).map((d: string) => (
-                <span key={d} className="text-xs bg-cave-600/40 px-2 py-0.5 text-cave-50 rounded-full">{d}</span>
+            <dl className="mt-3 divide-y divide-cave-400/50 text-sm">
+              {[[lang === 'ja' ? '生産者' : '생산자', result.producer], [lang === 'ja' ? 'タイプ' : '유형', result.wineType], [lang === 'ja' ? 'ヴィンテージ' : '빈티지', result.vintage], [lang === 'ja' ? '生産地' : '생산지', [countryFlag(result.country), result.country, result.region].filter(Boolean).join(' ')], [lang === 'ja' ? '品種' : '품종', result.grapeVariety]].filter(([, value]) => value).map(([label, value]) => (
+                <div key={String(label)} className="grid grid-cols-[88px_1fr] gap-3 py-2"><dt className="text-cave-100">{label}</dt><dd className="font-medium text-ink">{value}</dd></div>
               ))}
-            </div>
+            </dl>
             {result.expertScore && <div className="text-xs text-gold-400 mt-2">⭐ {result.expertScore}</div>}
           </div>
 
           {result.blendRatio && (
             <div className="card p-4">
-              <div className="text-[10px] tracking-widest uppercase text-gold-400 mb-2">
+              <div className="text-xs tracking-wider uppercase text-gold-700 mb-2">
                 {lang === 'ja' ? 'ブレンド比率' : '블렌딩 비율'}
               </div>
               <div className="text-sm text-ink font-medium">{result.blendRatio}</div>
               {result.blendSource && (
-                <div className="text-[10px] text-cave-200 mt-1.5">
+                <div className="text-xs text-cave-200 mt-1.5">
                   {lang === 'ja' ? '出典: ' : '출처: '}{result.blendSource}
                 </div>
               )}
@@ -247,20 +254,40 @@ export default function AIRecommend({ lang, user, onBack }: Props) {
           {result.sources?.length > 0 && <div className="card p-3 text-xs"><div>{lang === 'ja' ? '調査出典' : '조사 출처'}</div>{result.sources.map((source: { url: string; title: string }, i: number) => <a key={`${source.url}-${i}`} href={source.url} target="_blank" rel="noopener noreferrer" className="block underline mt-2 break-words">{source.title || source.url}</a>)}</div>}
           {(result.priceJPY || result.priceUSD) && (
             <div className="card p-4">
-              <div className="text-[10px] tracking-widest uppercase text-gold-400 mb-2">
+              <div className="text-xs tracking-wider uppercase text-gold-700 mb-2">
                 {lang === 'ja' ? '参考価格' : '참고 가격'}
               </div>
               {result.priceJPY && (
                 <div className="mb-1">
                   <span className="text-lg font-serif text-gold-200">{result.priceJPY}</span>
-                  {result.priceJPYSource && <span className="text-[10px] text-cave-200 ml-2">({result.priceJPYSource})</span>}
+                  {result.priceJPYSource && <span className="text-xs text-cave-200 ml-2">({result.priceJPYSource})</span>}
                 </div>
               )}
               {result.priceUSD && (
                 <div>
                   <span className="text-sm text-cave-50">🌍 {result.priceUSD}</span>
-                  {result.priceUSDSource && <span className="text-[10px] text-cave-200 ml-2">({result.priceUSDSource})</span>}
+                  {result.priceUSDSource && <span className="text-xs text-cave-200 ml-2">({result.priceUSDSource})</span>}
                 </div>
+              )}
+            </div>
+          )}
+
+          {result.drinkingWindow && (
+            <div className="card p-4">
+              <div className="text-[12px] font-semibold text-cave-200 mb-2">
+                {lang === 'ja' ? '飲み頃の目安' : '음용 적기'}
+              </div>
+              <div className="text-xl font-serif text-ink">{result.drinkingWindow}</div>
+              {result.drinkingWindowNow && <div className="text-sm text-cave-50 mt-1">{result.drinkingWindowNow}</div>}
+              <div className="text-xs text-cave-200 mt-2">
+                {result.drinkingWindowBasis === 'exact_vintage'
+                  ? (lang === 'ja' ? 'このヴィンテージの資料に基づく目安' : '해당 빈티지 자료에 근거한 예상')
+                  : (lang === 'ja' ? '同銘柄・産地の一般的な傾向' : '동일 와인·산지의 일반적 경향')}
+              </div>
+              {result.drinkingWindowSource && (
+                <a href={result.drinkingWindowSource} target="_blank" rel="noopener noreferrer" className="block text-xs underline break-all mt-2">
+                  {lang === 'ja' ? '根拠を見る' : '근거 보기'}
+                </a>
               )}
             </div>
           )}
@@ -275,6 +302,7 @@ export default function AIRecommend({ lang, user, onBack }: Props) {
                     <div className={`h-full rounded-full transition-all ${matchBg(result.matchScore)}`} style={{ width: `${result.matchScore}%` }} />
                   </div>
                   <div className="text-xs text-cave-100 mt-2">{result.matchReason}</div>
+                  <div className="text-xs text-cave-200 mt-1">{lang === 'ja' ? `${result.matchRecordCount}件の記録に基づく参考値です。` : `${result.matchRecordCount}건의 기록에 근거한 참고값입니다.`}</div>
                 </div>
               </div>
             ) : (
@@ -303,7 +331,7 @@ export default function AIRecommend({ lang, user, onBack }: Props) {
             <div className="card p-3 flex items-center gap-3">
               <span className="text-2xl">🥂</span>
               <div>
-                <div className="text-[10px] text-cave-200">{lang === 'ja' ? 'おすすめシーン' : '추천 상황'}</div>
+                <div className="text-xs text-cave-200">{lang === 'ja' ? 'おすすめシーン' : '추천 상황'}</div>
                 <div className="text-sm text-cave-50">{result.recommendedFor}</div>
               </div>
             </div>
@@ -315,9 +343,7 @@ export default function AIRecommend({ lang, user, onBack }: Props) {
         </div>
       )}
 
-      <div className="mt-6 text-center text-[10px] text-cave-200">
-        {lang === 'ja' ? `今月の利用回数: ${usageThisMonth}回` : `이번 달 사용 횟수: ${usageThisMonth}회`}
-      </div>
+      {usageThisMonth >= usageLimit && <div className="mt-5 rounded-lg border border-gold-500 bg-gold-50 p-3 text-sm text-gold-800">{lang === 'ja' ? '今月の利用上限に達しました。プラン変更機能は決済連携時に提供予定です。' : '이번 달 이용 한도에 도달했습니다. 플랜 변경 기능은 결제 연동 단계에서 제공할 예정입니다.'}</div>}
     </div>
   )
 }

@@ -17,7 +17,7 @@ test('Fresh schema, migration, owner RLS, private storage and atomic AI quotas',
       create function storage.foldername(text) returns text[] language sql immutable as $$ select string_to_array($1, '/') $$;
       grant usage on schema public, auth, storage to authenticated;
       grant select, insert, delete on storage.objects to authenticated;`)
-    for (const file of ['supabase_schema.sql','supabase_schema_v2.sql','supabase/migrations/20260916_reliability.sql']) await db.exec(fs.readFileSync(path.resolve(__dirname,'..',file),'utf8'))
+    for (const file of ['supabase_schema.sql','supabase_schema_v2.sql','supabase/migrations/20260916_reliability.sql','supabase/migrations/20260918_product_foundation.sql']) await db.exec(fs.readFileSync(path.resolve(__dirname,'..',file),'utf8'))
     await db.exec(`insert into auth.users values ('00000000-0000-0000-0000-000000000001'),('00000000-0000-0000-0000-000000000002');
       grant select, insert, update, delete on public.tastings, public.blind_sessions to authenticated;
       grant select on public.ai_usage_logs to authenticated;
@@ -28,6 +28,7 @@ test('Fresh schema, migration, owner RLS, private storage and atomic AI quotas',
     await assert.rejects(db.query(`insert into public.tastings(user_id) values ('00000000-0000-0000-0000-000000000001')`))
     await db.exec(`select set_config('request.jwt.claim.sub','00000000-0000-0000-0000-000000000001',false);`)
     assert.equal((await db.query('select palate_notes from public.tastings')).rows[0].palate_notes,'Saved palate note')
+    assert.ok((await db.query("select 1 from information_schema.columns where table_schema='public' and table_name='tastings' and column_name='mousse'")).rows.length)
     assert.equal((await db.query("select public.reserve_ai_usage('sommelier') as allowed")).rows[0].allowed,true)
     assert.equal((await db.query("select public.reserve_ai_usage('sommelier') as allowed")).rows[0].allowed,false)
     await assert.rejects(db.query("insert into public.ai_usage_logs(user_id,feature) values (auth.uid(),'sommelier')"))

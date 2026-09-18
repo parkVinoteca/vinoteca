@@ -129,7 +129,7 @@ export default function BlindMode({ lang, user, onBack }: Props) {
 
         <div className="card p-6 space-y-4">
           <div>
-            <label className="text-[10px] tracking-widest uppercase text-gold-400 mb-1 block">{t.blind.sessionTitle}</label>
+            <label className="text-xs tracking-wider uppercase text-gold-700 mb-1 block">{t.blind.sessionTitle}</label>
             <input
               value={sessionTitle}
               onChange={e => setSessionTitle(e.target.value)}
@@ -138,7 +138,7 @@ export default function BlindMode({ lang, user, onBack }: Props) {
             />
           </div>
           <div>
-            <label className="text-[10px] tracking-widest uppercase text-gold-400 mb-2 block">
+            <label className="text-xs tracking-wider uppercase text-gold-700 mb-2 block">
               {t.blind.wineCount}: {wineCount}
             </label>
             <div className="flex flex-wrap gap-2">
@@ -165,7 +165,7 @@ export default function BlindMode({ lang, user, onBack }: Props) {
     <div className="max-w-lg mx-auto p-4">
       <div className="flex items-center justify-between mb-4">
         <div className="section-title mb-0">{t.blind.title}</div>
-        <button onClick={() => setView('new')} className="btn-primary py-2 px-4 text-[10px]">
+        <button onClick={() => setView('new')} className="btn-primary py-2 px-4 text-xs">
           + {t.blind.newSession}
         </button>
       </div>

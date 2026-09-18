@@ -3,16 +3,15 @@
 @tailwind utilities;
 
 :root {
-  /* Cave Note style — dark luxury cellar theme */
-  --gold: #C9A876;
-  --gold-light: #DFBE7C;
-  --gold-dark: #96763F;
-  --cave-bg: #0A0A0F;
-  --cave-surface: #14151F;
-  --cave-surface-2: #1A1C28;
-  --cave-border: rgba(201,168,118,0.18);
-  --ink: #F5EBD6;
-  --ink-muted: #8B8FA3;
+  --gold: #C8102E;
+  --gold-light: #EF6A82;
+  --gold-dark: #880C22;
+  --cave-bg: #F7F4EF;
+  --cave-surface: #FFFFFF;
+  --cave-surface-2: #F3F1ED;
+  --cave-border: rgba(75, 11, 22, 0.16);
+  --ink: #202124;
+  --ink-muted: #656A73;
 }
 
 html {
@@ -22,9 +21,7 @@ html {
 body {
   background-color: var(--cave-bg);
   color: var(--ink);
-  background-image:
-    radial-gradient(ellipse 800px 600px at 15% 0%, rgba(201,168,118,0.05) 0%, transparent 60%),
-    radial-gradient(ellipse 600px 500px at 100% 100%, rgba(201,168,118,0.04) 0%, transparent 60%);
+  background-image: linear-gradient(180deg, #fffdfa 0%, #f7f4ef 100%);
   background-attachment: fixed;
   min-height: 100vh;
 }
@@ -32,41 +29,41 @@ body {
 @layer components {
   /* Buttons */
   .btn-primary {
-    @apply bg-gradient-to-b from-gold-500 to-gold-600 text-cave-900 px-6 py-3 rounded-none font-medium tracking-widest text-xs uppercase transition-all hover:from-gold-400 hover:to-gold-500 active:from-gold-600 active:to-gold-700 disabled:opacity-40 disabled:cursor-not-allowed shadow-[0_2px_12px_rgba(201,168,118,0.25)];
+    @apply bg-gold-500 text-white px-6 py-3 rounded-lg font-medium tracking-wide text-sm transition-all hover:bg-gold-600 active:bg-gold-700 disabled:opacity-40 disabled:cursor-not-allowed shadow-sm;
   }
   .btn-secondary {
-    @apply border border-gold-700/50 text-gold-300 px-6 py-3 rounded-none font-medium tracking-widest text-xs uppercase transition-all hover:bg-gold-900/20 hover:border-gold-500;
+    @apply border border-gold-700/40 text-gold-700 px-6 py-3 rounded-lg font-medium text-sm transition-all hover:bg-gold-50 hover:border-gold-500;
   }
 
   /* Chips / tags — pill shape like Cave Note */
   .chip {
-    @apply px-3 py-1.5 rounded-full border border-cave-400/40 text-xs text-cave-200 cursor-pointer transition-all bg-cave-600/60 hover:border-gold-500/50 hover:text-gold-200;
+    @apply px-3 py-2 rounded-full border border-cave-400 text-sm text-cave-50 cursor-pointer transition-all bg-white hover:border-gold-500 hover:text-gold-700;
   }
   .chip-on {
-    @apply bg-gold-900/40 border-gold-500/60 text-gold-200 font-medium;
+    @apply bg-gold-50 border-gold-500 text-gold-700 font-medium;
   }
 
   /* Section titles */
   .section-title {
-    @apply text-[10px] font-medium tracking-[0.2em] uppercase text-gold-400 border-b border-gold-900/40 pb-2 mb-4;
+    @apply text-sm font-semibold tracking-wide text-gold-700 border-b border-gold-200 pb-2 mb-3;
   }
 
   /* Inputs */
   .input-field {
-    @apply w-full bg-cave-600/40 border-0 border-b border-cave-400/30 px-2 py-2 text-sm text-ink focus:outline-none focus:border-gold-500 transition-colors placeholder-cave-200/50 rounded-t;
+    @apply w-full bg-white border border-cave-400 px-3 py-2.5 text-sm text-ink focus:outline-none focus:border-gold-500 transition-colors placeholder-cave-200 rounded-lg;
   }
 
   /* Scale buttons (WSET scale rows) */
   .scale-btn {
-    @apply flex-1 py-2 px-1 text-center text-xs text-cave-200 border-r border-cave-400/20 last:border-r-0 cursor-pointer transition-all hover:bg-gold-900/20 hover:text-gold-200;
+    @apply flex-1 min-h-11 py-2 px-1 text-center text-xs text-cave-50 border-r border-cave-400 last:border-r-0 cursor-pointer transition-all hover:bg-gold-50 hover:text-gold-700;
   }
   .scale-btn-on {
-    @apply bg-gradient-to-b from-gold-500 to-gold-600 text-cave-900 font-medium;
+    @apply bg-gold-500 text-white font-medium;
   }
 
   /* Cards — dark with subtle gold border, like Cave Note wine cards */
   .card {
-    @apply bg-cave-600/50 border border-gold-900/30 shadow-[0_4px_20px_rgba(0,0,0,0.3)] backdrop-blur-sm rounded-lg;
+    @apply bg-white border border-cave-400 shadow-sm rounded-xl;
   }
 
   /* Label scan frame — gold corner brackets like Cave Note camera UI */
@@ -107,6 +104,21 @@ button:disabled { cursor: not-allowed; }
   50% { top: 80%; opacity: 1; }
 }
 .analysis-scan { animation: label-scan 3s ease-in-out infinite; }
+.simple-range {
+  height: 7px;
+  border-radius: 999px;
+  appearance: none;
+  background: linear-gradient(90deg, #f8d7dc, #c8102e);
+}
+.simple-range::-webkit-slider-thumb {
+  appearance: none;
+  width: 24px;
+  height: 24px;
+  border-radius: 999px;
+  border: 3px solid white;
+  background: #880c22;
+  box-shadow: 0 1px 5px rgba(0,0,0,.28);
+}
 @media (prefers-reduced-motion: reduce) {
   .analysis-scan { animation: none !important; top: 45%; opacity: .5; }
 }

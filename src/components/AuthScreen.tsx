@@ -81,7 +81,7 @@ export default function AuthScreen({ lang, onLangChange }: Props) {
       {/* Hero — Cave Note style */}
       <div className="relative text-center pt-16 pb-14 px-6">
         <div className="inline-block mb-6">
-          <div className="text-[10px] tracking-[0.5em] text-gold-500/70 uppercase mb-3">Vinoteca</div>
+          <div className="text-xs tracking-[0.35em] text-gold-700 uppercase mb-3">Vinoteca</div>
           <div className="font-serif italic text-5xl md:text-6xl text-gold-200 leading-tight text-gold-glow">
             {lang === 'ja' ? (
               <>飲んだ一本を<br />忘れない</>
@@ -126,7 +126,7 @@ export default function AuthScreen({ lang, onLangChange }: Props) {
 
           <div className="space-y-4">
             <div>
-              <label htmlFor="auth-email" className="text-[10px] tracking-[0.2em] uppercase text-gold-500 mb-1 block">
+              <label htmlFor="auth-email" className="text-xs tracking-[0.15em] uppercase text-gold-700 mb-1 block">
                 {lang === 'ja' ? 'メールアドレス' : '이메일'}
               </label>
               <input
@@ -141,7 +141,7 @@ export default function AuthScreen({ lang, onLangChange }: Props) {
               />
             </div>
             {mode !== 'reset' && <div>
-              <label htmlFor="auth-password" className="text-[10px] tracking-[0.2em] uppercase text-gold-500 mb-1 block">
+              <label htmlFor="auth-password" className="text-xs tracking-[0.15em] uppercase text-gold-700 mb-1 block">
                 {lang === 'ja' ? 'パスワード' : '비밀번호'}
               </label>
               <input
@@ -183,7 +183,7 @@ export default function AuthScreen({ lang, onLangChange }: Props) {
             {/* Divider */}
             <div className="flex items-center gap-3 py-1">
               <div className="flex-1 h-px bg-gold-900/30" />
-              <span className="text-[10px] text-cave-100 tracking-widest uppercase">
+              <span className="text-xs text-cave-100 tracking-wider uppercase">
                 {lang === 'ja' ? 'または' : '또는'}
               </span>
               <div className="flex-1 h-px bg-gold-900/30" />
@@ -224,7 +224,7 @@ export default function AuthScreen({ lang, onLangChange }: Props) {
         {/* Footer tagline like Cave Note */}
         <div className="mt-10 text-center">
           <div className="font-serif italic text-gold-500/60 text-sm tracking-widest">CAVE · VINOTECA</div>
-          <div className="text-[9px] text-cave-200 tracking-[0.2em] uppercase mt-1">
+          <div className="text-xs text-cave-200 tracking-[0.15em] uppercase mt-1">
             {lang === 'ja' ? 'ワイン記録アプリ・無料' : '와인 기록 앱 · 무료'}
           </div>
         </div>
