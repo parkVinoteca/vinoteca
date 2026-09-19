@@ -1,4 +1,5 @@
 // 취향 프로필 계산 로직 — AI 호출 없이 순수 계산
+import { personalRating } from '@/lib/ratings'
 import { RECENCY_WEIGHT_BANDS } from '@/lib/productConfig'
 
 export interface TastingRecord {
@@ -25,6 +26,8 @@ export interface TasteProfile {
   topGrapes: string[]
   topRegions: string[]
   topCountries: string[]
+  samples: { record: TastingRecord; weight: number; signal: number }[]
+  ratingSpread: number
 }
 
 // 텍스트 등급을 숫자로 변환 (다국어 대응)
@@ -76,7 +79,7 @@ function countTop(items: { value: string | null; weight: number }[], topN = 3): 
 
 export function calculateTasteProfile(records: TastingRecord[]): TasteProfile | null {
   // Callers pass newest first. Keep the weighting deterministic for equal dates.
-  const scored = records.filter(r => r.score !== null || r.stars !== null && r.stars !== undefined)
+  const scored = records.filter(r => personalRating(r) !== null)
   if (scored.length === 0) return null
 
   const weightedAverage = (values: { value: number; weight: number }[]) => {
@@ -84,10 +87,13 @@ export function calculateTasteProfile(records: TastingRecord[]): TasteProfile | 
     return totalWeight ? values.reduce((sum, item) => sum + item.value * item.weight, 0) / totalWeight : 3
   }
 
-  // Expert 10-point scores and simple 5-star likes both contribute.
-  const preferred = scored.map((record, index) => ({ record, weight: recordWeight(index) }))
-    .filter(({ record }) => (record.score || 0) >= 7 || (record.stars || 0) >= 4)
-  if (!preferred.length) return null
+  const samples = scored.map((record,index) => ({record,weight:recordWeight(index),signal:0}))
+  const average = weightedAverage(samples.map(({record,weight}) => ({value:personalRating(record)!,weight})))
+  const deviation = Math.sqrt(weightedAverage(samples.map(({record,weight}) => ({value:(personalRating(record)!-average)**2,weight}))))
+  // Centre on this person's ratings, not an arbitrary high-score threshold.
+  // Low ratings provide negative evidence; strict scorers still have positive preferences.
+  for (const sample of samples) sample.signal = Math.max(-1,Math.min(1,(personalRating(sample.record)!-average)/Math.max(.5,deviation)))
+  const preferred = samples.map(sample => ({...sample,weight:sample.weight * Math.exp(sample.signal * 2)}))
   const levelAverage = (field: 'body' | 'tannin' | 'acidity' | 'alcohol') => {
     const values = preferred.map(({ record, weight }) => ({ value: scaleToNumber(record[field]), weight }))
       .filter((item): item is { value: number; weight: number } => item.value !== null)
@@ -95,11 +101,13 @@ export function calculateTasteProfile(records: TastingRecord[]): TasteProfile | 
   }
 
   const scoreValues = scored.map((record, index) => ({
-    value: record.score ?? (record.stars ? record.stars * 2 : 0), weight: recordWeight(index),
+    value: personalRating(record)!, weight: recordWeight(index),
   }))
 
   return {
     count: scored.length,
+    samples,
+    ratingSpread: Math.max(...scored.map(r=>personalRating(r)!))-Math.min(...scored.map(r=>personalRating(r)!)),
     avgScore: Math.round(weightedAverage(scoreValues) * 10) / 10,
     bodyScore: levelAverage('body'),
     tanninScore: levelAverage('tannin'),
@@ -115,61 +123,47 @@ export function calculateTasteProfile(records: TastingRecord[]): TasteProfile | 
 export function calculateMatchScore(
   profile: TasteProfile,
   wine: { body?: number | null; tannin?: number | null; acidity?: number | null; alcohol?: number | null; grape?: string | null; region?: string | null; country?: string | null }
-): { score: number | null; grapeMatched: boolean; regionMatched: boolean; structureDiff: number } {
-  let difference = 0
-  let weights = 0
-  let factors = 0
-  let totalDiff = 0
-  for (const [field, weight] of [['body', 10], ['tannin', 10], ['acidity', 8], ['alcohol', 6]] as const) {
-    const value = wine[field]
-    const reference = profile[`${field}Score`]
-    if (typeof value !== 'number' || !Number.isFinite(value) || value < 1 || value > 5 || reference === null) continue
-    const diff = Math.abs(value - reference)
-    difference += diff * weight
-    weights += weight
-    totalDiff += diff
-    factors++
+): { score: number | null; grapeMatched: boolean; regionMatched: boolean; structureDiff: number; evidenceCount: number; reason?: 'ratings_similar' | 'insufficient' } {
+  const matches = (value: string | null | undefined, other: string | null) => !!value && !!other && normalizeWineTerm(value) === normalizeWineTerm(other)
+  const evidence: {signal:number; weight:number; difference:number; grape:boolean; region:boolean}[] = []
+  for (const sample of profile.samples) {
+    let total=0, weights=0, factors=0
+    for (const [field,weight] of [['body',10],['tannin',10],['acidity',8],['alcohol',6]] as const) {
+      const target=wine[field], previous=scaleToNumber(sample.record[field])
+      if (typeof target !== 'number' || !Number.isFinite(target) || target<1 || target>5 || previous === null) continue
+      total+=Math.abs(target-previous)/4*weight; weights+=weight; factors++
+    }
+    if(factors<2) continue
+    const structureDistance=total/weights
+    let distance=structureDistance*70, dimensionWeight=70
+    for(const [value,other,weight] of [[wine.grape,sample.record.grape_variety,15],[wine.region,sample.record.region,10],[wine.country,sample.record.country,5]] as const) {
+      if(value && other) {distance+=(matches(value,other)?0:1)*weight;dimensionWeight+=weight}
+    }
+    distance/=dimensionWeight
+    // Nearby disliked records pull down, nearby liked records pull up. Distant records
+    // provide little evidence, rather than being mistaken for disliked styles.
+    const similarity=Math.exp(-8*distance)
+    evidence.push({signal:sample.signal,weight:similarity*sample.weight,difference:structureDistance*4,grape:matches(wine.grape,sample.record.grape_variety),region:matches(wine.region,sample.record.region)})
   }
-  const matches = (value: string | null | undefined, choices: string[]) => !!value && choices.some(v => normalizeWineTerm(v) === normalizeWineTerm(value))
-  const grapeMatched = matches(wine.grape, profile.topGrapes)
-  const regionMatched = matches(wine.region, profile.topRegions)
-  const countryMatched = matches(wine.country, profile.topCountries)
-  if (factors < 2) return { score: null, grapeMatched, regionMatched, structureDiff: Infinity }
-  const structure = 100 * (1 - difference / (4 * weights))
-  let sum = structure * 70
-  let denominator = 70
-  for (const [available, matched, weight] of [
-    [!!wine.grape && !!profile.topGrapes.length, grapeMatched, 15],
-    [!!wine.region && !!profile.topRegions.length, regionMatched, 10],
-    [!!wine.country && !!profile.topCountries.length, countryMatched, 5],
-  ] as const) {
-    if (available) { denominator += weight; sum += (matched ? 100 : 0) * weight }
-  }
-  return { score: Math.round(Math.max(0, Math.min(100, sum / denominator))), grapeMatched, regionMatched, structureDiff: totalDiff / factors }
+  const empty={score:null,grapeMatched:false,regionMatched:false,structureDiff:Infinity,evidenceCount:evidence.length}
+  if(profile.ratingSpread<.2) return {...empty,reason:'ratings_similar'}
+  if(evidence.length<3 || Math.max(...evidence.map(e=>e.weight))<.1) return {...empty,reason:'insufficient'}
+  const sum=evidence.reduce((n,e)=>n+e.weight,0)
+  const signal=evidence.reduce((n,e)=>n+e.signal*e.weight,0)/sum
+  // Small samples remain conservative; this is a reference index, not a probability.
+  const confidence=Math.min(1,Math.sqrt(evidence.length/8))
+  return {score:Math.round(50+50*signal*confidence),grapeMatched:evidence.some(e=>e.grape && e.signal>0),regionMatched:evidence.some(e=>e.region && e.signal>0),structureDiff:evidence.reduce((n,e)=>n+e.difference*e.weight,0)/sum,evidenceCount:evidence.length}
 }
 
 // 매칭 결과를 사람이 읽을 수 있는 설명 문구로 변환 (AI 호출 없이 템플릿 기반)
-export function buildMatchReason(
-  lang: 'ja' | 'ko',
-  matchResult: { score: number | null; grapeMatched: boolean; regionMatched: boolean; structureDiff: number }
-): string {
-  const { score, grapeMatched, regionMatched, structureDiff } = matchResult
-  if (score === null) return lang === 'ja' ? '構造データが不足しているため相性スコアを計算できません。' : '구조 정보가 부족해 취향 점수를 계산할 수 없습니다.'
-  const isCloseStructure = structureDiff < 1
-
-  if (lang === 'ja') {
-    const parts: string[] = []
-    if (isCloseStructure) parts.push('これまでお好みだった構造(ボディ・タンニン等)に近い')
-    if (grapeMatched) parts.push('高評価だった品種と一致')
-    if (regionMatched) parts.push('好みの産地と一致')
-    if (parts.length === 0) parts.push('過去の記録と構造がやや異なる')
-    return `${parts.join('、')}ため、相性スコアは${score}点となりました。`
-  } else {
-    const parts: string[] = []
-    if (isCloseStructure) parts.push('지금까지 선호하신 구조(바디·타닌 등)와 유사')
-    if (grapeMatched) parts.push('높은 평점을 준 품종과 일치')
-    if (regionMatched) parts.push('선호하는 산지와 일치')
-    if (parts.length === 0) parts.push('과거 기록과 구조가 다소 다름')
-    return `${parts.join(', ')}하여 취향 일치도는 ${score}점으로 산출됐습니다.`
-  }
+export function buildMatchReason(lang: 'ja' | 'ko', result: ReturnType<typeof calculateMatchScore>): string {
+  if (result.score === null) return result.reason === 'ratings_similar'
+    ? (lang === 'ja' ? '評価の差がまだ小さいため、好き・苦手の傾向は判断できません。感じたままの点数を記録してください。' : '아직 평점 차이가 작아 선호·비선호를 구분하기 어렵습니다. 느낀 그대로 점수를 남겨주세요.')
+    : (lang === 'ja' ? '比較できる特徴を含む記録が不足しています。高い点数でなくても、ボディや酸味を記録すると参考になります。' : '특징을 비교할 수 있는 기록이 부족합니다. 높은 점수가 아니어도 바디나 산미를 기록하면 도움이 됩니다.')
+  const tendency = result.score >= 65
+    ? (lang === 'ja' ? 'ご自身の中で高く評価したスタイルに近い傾向です。' : '본인이 상대적으로 높게 평가한 스타일과 가까운 편입니다.')
+    : result.score <= 35
+      ? (lang === 'ja' ? 'ご自身が低く評価したスタイルに近く、好みに合わない可能性があります。' : '본인이 낮게 평가한 스타일과 가까워 취향에 맞지 않을 수 있습니다.')
+      : (lang === 'ja' ? '好き・苦手の両方に近い特徴があり、好みはまだ分かれそうです。' : '선호·비선호 기록과 겹치는 특징이 있어 취향에 맞을지는 아직 뚜렷하지 않습니다.')
+  return tendency + (lang === 'ja' ? '低い評価も含め、ご自身の採点傾向と比較した参考値です。' : '낮은 평점도 포함해 본인의 채점 경향과 비교한 참고값입니다.')
 }

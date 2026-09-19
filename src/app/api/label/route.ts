@@ -41,7 +41,7 @@ export async function POST(req: Request) {
       console.warn('[ai_fallback]', 'label_scan_claude')
       provider='claude'; result=await claude(image,fallbackKey)
     }
-    const enriched = await enrichGrapes(result, image.lang, fallbackKey)
+    const enriched = await enrichGrapes(result, image.lang, fallbackKey, false)
     return Response.json({ result: enriched, provider }, { headers: { 'Cache-Control': 'no-store' } })
   } catch (error) { return failure(error) }
 }

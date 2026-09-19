@@ -4,7 +4,7 @@ const { load } = require('./helpers.cjs')
 const ai = load('src/lib/server/ai.ts')
 const image = { imageBase64: Buffer.from([255,216,255,0,0,0]).toString('base64'), imageMediaType: 'image/jpeg', lang: 'ja' }
 const request = body => new Request('http://localhost/api/sommelier', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
-const valid = { wineName: 'Example wine', producer: 'Example producer', vintage: '2020', wineType: 'red', bodyLevel: 3, tanninLevel: 2, acidityLevel: 4, alcoholLevel: 3, characteristics: ['Dry'], priceJPY: 'JPY 3000', priceJPYSource: 'https://example.com/wine', blendRatio: '100% Merlot', blendSource: 'https://invented.example/wine', drinkingWindow: '2026-2032', drinkingWindowNow: 'Ready now', drinkingWindowSource: 'https://invented.example/window', drinkingWindowBasis: 'exact_vintage' }
+const valid = { wineName: 'Example wine', producer: 'Example producer', vintage: '2020', wineType: 'red', bodyLevel: 3, tanninLevel: 2, acidityLevel: 4, alcoholLevel: 3, characteristics: ['Dry'], priceJPY: 'JPY 3000', priceJPYSource: 'https://example.com/wine', blendRatio: '100% Merlot', blendSource: 'https://invented.example/wine', sommelierComment: 'A lively wine with a refreshing style.', sommelierCommentSource: 'https://invented.example/wine' }
 test('Unauthenticated requests are rejected by both AI endpoints', async () => {
   for (const endpoint of ['sommelier','label']) assert.equal((await load(`src/app/api/${endpoint}/route.ts`).POST(request(image))).status, 401)
 })
@@ -36,8 +36,8 @@ test('Sommelier reserves before provider call and removes unsupported source cla
   assert.equal(response.status, 200)
   assert.equal(result.priceJPY, 'JPY 3000')
   assert.equal(result.blendRatio, null)
-  assert.equal(result.drinkingWindow, null)
-  assert.equal(result.drinkingWindowNow, null)
+  assert.equal(result.sommelierComment, null)
+  assert.equal(result.sommelierCommentSource, null)
   assert.deepEqual(handler.counts(), { reservations: 1, calls: 1 })
 })
 test('Sommelier rejects invalid AI results, truncation and missing search evidence', async () => {
@@ -91,7 +91,7 @@ test('Citation-segmented text is reassembled without inserting newlines inside J
  const response=await route(data).POST(request(image));assert.equal(response.status,200)
  assert.equal((await response.json()).result.description,'Producer details and quoted source')
 })
-test('Label quota fallback calls Claude once without another reservation or web search',async()=>{
+test('Label fallback preserves visible grapes and skips disabled critic research',async()=>{
  let calls=[],reservations=0
  const mock={...ai,authorize:async()=>({}),reserveUsage:async()=>{reservations++},providerFetch:async(url,init)=>{
   calls.push({url,body:JSON.parse(init.body)})
@@ -111,4 +111,12 @@ test('Label fallback never retries bad credentials, unreadable labels or timeout
   const handler=load('src/app/api/label/route.ts',{process:{env:{GEMINI_API_KEY:'offline',ANTHROPIC_API_KEY:'offline'}}},{'@/lib/server/ai':mock})
   assert.equal((await handler.POST(request(image))).status,502);assert.equal(calls,1)
  }
+})
+test('Sommelier conversation is accepted only with an observed source and stays within the existing call',async()=>{
+ const data=responseData({...valid,sommelierComment:'果実味が魅力の一本ですね。',sommelierCommentSource:'https://example.com/wine'})
+ const response=await route(data).POST(request(image))
+ const {result}=await response.json()
+ assert.equal(result.sommelierCommentSource,'https://example.com/wine')
+ assert.equal(result.sommelierComment,'果実味が魅力の一本ですね。')
+ assert.equal(result.drinkingWindow,undefined)
 })

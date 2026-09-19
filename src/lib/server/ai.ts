@@ -132,7 +132,6 @@ export function validateSommelier(input: Record<string, unknown>) {
   return { ...label, ...levels, characteristics: input.characteristics,
     description: optionalText(input.description), blendRatio: optionalText(input.blendRatio), blendSource: optionalText(input.blendSource),
     priceJPY: optionalText(input.priceJPY, 100), priceJPYSource: optionalText(input.priceJPYSource), priceUSD: optionalText(input.priceUSD, 100), priceUSDSource: optionalText(input.priceUSDSource),
-    expertScore: optionalText(input.expertScore, 200), recommendedFor: optionalText(input.recommendedFor),
-    drinkingWindow: optionalText(input.drinkingWindow, 100), drinkingWindowNow: optionalText(input.drinkingWindowNow, 200),
-    drinkingWindowSource: optionalText(input.drinkingWindowSource), drinkingWindowBasis: optionalText(input.drinkingWindowBasis, 20) }
+    recommendedFor: optionalText(input.recommendedFor),
+    sommelierComment: optionalText(input.sommelierComment, 500), sommelierCommentSource: optionalText(input.sommelierCommentSource) }
 }

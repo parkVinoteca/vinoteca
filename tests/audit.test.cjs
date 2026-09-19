@@ -19,23 +19,23 @@ test('Japanese and Korean dictionaries have matching keys', () => assert.deepEqu
 for (const [lang, dictionary] of [['ja', ja], ['ko', ko]]) {
   test(`${lang}: every visible palate scale maps to levels 1 through 5`, () => {
     for (const [field, labels] of [['body', dictionary.palate.bodyLevels], ['acidity', dictionary.palate.acidityLevels], ['tannin', dictionary.palate.tanninLevels], ['alcohol', dictionary.palate.alcoholLevels]]) {
-      labels.forEach((label, index) => assert.equal(calculateTasteProfile([{ ...record, [field]: label }])[`${field}Score`], index + 1, `${field}: ${label}`))
+      labels.forEach((label, index) => assert.equal(calculateTasteProfile([{ ...record, [field]: label }])[`${field}Score`], (labels.length === 3 ? index * 2 + 1 : index + 1), `${field}: ${label}`))
     }
   })
 }
-test('Unknown levels stay unknown and low ratings do not skew preferences', () => {
+test('Unknown levels stay unknown; relative likes lead the summary without dropping dislikes', () => {
   assert.equal(scaleToNumber('unknown'), null)
-  assert.equal(calculateTasteProfile([{ ...record, body: 'full', score: 2 }, { ...record, body: 'light' }]).bodyScore, 1)
+  assert.ok(calculateTasteProfile([{ ...record, body: 'full', score: 2 }, { ...record, body: 'light' }]).bodyScore < 1.2)
 })
 test('No structural information does not produce a misleading score', () => {
   const profile = calculateTasteProfile([record])
   assert.equal(calculateMatchScore(profile, {}).score, null)
 })
-test('Identical structures and translated grape names can reach 100', () => {
+test('A single wine cannot establish a personalised recommendation', () => {
   const profile = calculateTasteProfile([{ ...record, body: 'full', acidity: 'high', grape_variety: 'シャルドネ' }])
   const result = calculateMatchScore(profile, { body: 5, acidity: 5, grape: 'chardonnay' })
-  assert.equal(result.score, 100)
-  assert.equal(result.grapeMatched, true)
+  assert.equal(result.score, null)
+  assert.equal(result.evidenceCount, 1)
 })
 
 test('Recent preferences outweigh older records without deleting history', () => {
@@ -48,6 +48,6 @@ test('Recent preferences outweigh older records without deleting history', () =>
 
 test('Simple-mode stars can build a preference profile without a 10-point score', () => {
   const profile = calculateTasteProfile([{ ...record, score: null, stars: 5, body: 'full', acidity: 'high' }])
-  assert.equal(profile.avgScore, 10)
+  assert.equal(profile.avgScore, 5)
   assert.equal(profile.bodyScore, 5)
 })
