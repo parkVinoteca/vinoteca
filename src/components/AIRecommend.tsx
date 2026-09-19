@@ -5,7 +5,9 @@ import { translations, Language } from '@/i18n'
 import { calculateTasteProfile, calculateMatchScore, buildMatchReason, TastingRecord } from '@/lib/tastePofile'
 import { analyzeImage } from '@/lib/aiClient'
 import AnalysisProgress, { type AnalysisStage } from './AnalysisProgress'
+import SommelierNote from './SommelierNote'
 import ImageCropModal from './ImageCropModal'
+import { personalRating } from '@/lib/ratings'
 import { TASTE_PROFILE_MIN_RECORDS, TASTE_PROFILE_RECORD_LIMIT } from '@/lib/productConfig'
 import type { User } from '@supabase/supabase-js'
 
@@ -23,8 +25,9 @@ export default function AIRecommend({ lang, user, onBack }: Props) {
   const [analyzing, setAnalyzing] = useState(false)
   const [result, setResult] = useState<any>(null)
   const [error, setError] = useState('')
-  const [redCount, setRedCount] = useState(0)
-  const [whiteCount, setWhiteCount] = useState(0)
+  const [typeCounts, setTypeCounts] = useState<Record<string,number>>({})
+  const redCount = typeCounts.red || 0
+  const whiteCount = typeCounts.white || 0
   const [usageThisMonth, setUsageThisMonth] = useState(0)
   const [usageLimit, setUsageLimit] = useState(5)
   const [cropFile, setCropFile] = useState<File | null>(null)
@@ -34,15 +37,14 @@ export default function AIRecommend({ lang, user, onBack }: Props) {
   const loadStats = async () => {
     const { data: tastings } = await supabase
       .from('tastings')
-      .select('wine_type')
+      .select('wine_type,stars,score')
       .eq('user_id', user.id)
       .or('score.not.is.null,stars.not.is.null')
 
     if (tastings) {
-      const isRed = (v: string | null) => ['red', '레드', '赤ワイン', '赤'].includes(v || '')
-      const isWhite = (v: string | null) => ['white', '화이트', '白ワイン', '白'].includes(v || '')
-      setRedCount(tastings.filter(t => isRed(t.wine_type)).length)
-      setWhiteCount(tastings.filter(t => isWhite(t.wine_type)).length)
+      const counts: Record<string,number> = {}
+      tastings.filter(t=>personalRating(t)!==null).forEach(t=>{if(t.wine_type)counts[t.wine_type]=(counts[t.wine_type]||0)+1})
+      setTypeCounts(counts)
     }
 
     const tokyoMonth = new Date().toLocaleDateString('sv-SE', { timeZone: 'Asia/Tokyo' }).slice(0, 7)
@@ -75,7 +77,7 @@ export default function AIRecommend({ lang, user, onBack }: Props) {
         if (controller.signal.aborted) return
         setAnalysisStage('organize')
         let tasteProfile = null
-        const relevantCount = aiResult.wineType === 'red' ? redCount : aiResult.wineType === 'white' ? whiteCount : 0
+        const relevantCount = typeCounts[aiResult.wineType] || 0
         const canMatch = relevantCount >= TASTE_PROFILE_MIN_RECORDS
         if (canMatch && aiResult.wineType) {
           const { data, error } = await supabase.from('tastings')
@@ -102,12 +104,13 @@ export default function AIRecommend({ lang, user, onBack }: Props) {
             region: aiResult.region,
             country: aiResult.country,
           })
+          finalResult.matchRecordCount = matchResult.evidenceCount
           finalResult.matchScore = matchResult.score
           finalResult.matchReason = buildMatchReason(lang, matchResult)
         } else {
           finalResult.matchReason = lang === 'ja'
-            ? `このタイプの好みの記録が不足しています（赤${redCount}/3本、白${whiteCount}/3本）。4.0 / 5以上の構造データが必要です。`
-            : `이 유형의 선호 기록이 부족합니다 (레드 ${redCount}/3병, 화이트 ${whiteCount}/3병). 4.0 / 5 이상 기록의 구조 정보가 필요합니다.`
+            ? `このタイプの記録が不足しています（${relevantCount}/${TASTE_PROFILE_MIN_RECORDS}本）。点数に関係なく、ボディや酸味などの記録が参考になります。`
+            : `이 유형의 기록이 부족합니다 (${relevantCount}/${TASTE_PROFILE_MIN_RECORDS}병). 점수에 관계없이 바디·산미 같은 기록이 도움이 됩니다.`
         }
 
         if (controller.signal.aborted) return
@@ -271,26 +274,8 @@ export default function AIRecommend({ lang, user, onBack }: Props) {
             </div>
           )}
 
-          {result.drinkingWindow && (
-            <div className="card p-4">
-              <div className="text-[12px] font-semibold text-cave-200 mb-2">
-                {lang === 'ja' ? '飲み頃の目安' : '음용 적기'}
-              </div>
-              <div className="text-xl font-serif text-ink">{result.drinkingWindow}</div>
-              {result.drinkingWindowNow && <div className="text-sm text-cave-50 mt-1">{result.drinkingWindowNow}</div>}
-              <div className="text-xs text-cave-200 mt-2">
-                {result.drinkingWindowBasis === 'exact_vintage'
-                  ? (lang === 'ja' ? 'このヴィンテージの資料に基づく目安' : '해당 빈티지 자료에 근거한 예상')
-                  : (lang === 'ja' ? '同銘柄・産地の一般的な傾向' : '동일 와인·산지의 일반적 경향')}
-              </div>
-              {result.drinkingWindowSource && (
-                <a href={result.drinkingWindowSource} target="_blank" rel="noopener noreferrer" className="block text-xs underline break-all mt-2">
-                  {lang === 'ja' ? '根拠を見る' : '근거 보기'}
-                </a>
-              )}
-            </div>
-          )}
 
+          <SommelierNote lang={lang} result={result} />
           <div className="card p-4">
             <div className="text-xs font-medium text-ink mb-3">{t.recommend.match}</div>
             {result.matchScore !== null && result.matchScore !== undefined ? (

@@ -11,10 +11,10 @@ test('Fractional ratings win over legacy scores; unscored stays unscored', () =>
  assert.equal(personalRating({stars:NaN,score:11}),null)
  assert.equal(formatRating({score:1}), '0.5')
 })
-test('Both input modes use 4.0 as preference threshold, with stars authoritative', () => {
+test('Both input modes retain every rating, with stars authoritative', () => {
  const record={body:'full',tannin:null,acidity:null,alcohol:null,grape_variety:null,country:null,region:null,wine_type:'red'}
- assert.equal(calculateTasteProfile([{...record,score:7}]),null)
- assert.equal(calculateTasteProfile([{...record,score:10,stars:3.9}]),null)
+ assert.equal(calculateTasteProfile([{...record,score:7}]).avgScore,3.5)
+ assert.equal(calculateTasteProfile([{...record,score:10,stars:3.9}]).avgScore,3.9)
  assert.equal(calculateTasteProfile([{...record,score:null,stars:4}]).bodyScore,5)
  assert.equal(calculateTasteProfile([{...record,score:8}]).avgScore,4)
 })

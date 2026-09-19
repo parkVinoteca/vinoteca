@@ -23,19 +23,19 @@ for (const [lang, dictionary] of [['ja', ja], ['ko', ko]]) {
     }
   })
 }
-test('Unknown levels stay unknown and low ratings do not skew preferences', () => {
+test('Unknown levels stay unknown; relative likes lead the summary without dropping dislikes', () => {
   assert.equal(scaleToNumber('unknown'), null)
-  assert.equal(calculateTasteProfile([{ ...record, body: 'full', score: 2 }, { ...record, body: 'light' }]).bodyScore, 1)
+  assert.ok(calculateTasteProfile([{ ...record, body: 'full', score: 2 }, { ...record, body: 'light' }]).bodyScore < 1.2)
 })
 test('No structural information does not produce a misleading score', () => {
   const profile = calculateTasteProfile([record])
   assert.equal(calculateMatchScore(profile, {}).score, null)
 })
-test('Identical structures and translated grape names can reach 100', () => {
+test('A single wine cannot establish a personalised recommendation', () => {
   const profile = calculateTasteProfile([{ ...record, body: 'full', acidity: 'high', grape_variety: 'シャルドネ' }])
   const result = calculateMatchScore(profile, { body: 5, acidity: 5, grape: 'chardonnay' })
-  assert.equal(result.score, 100)
-  assert.equal(result.grapeMatched, true)
+  assert.equal(result.score, null)
+  assert.equal(result.evidenceCount, 1)
 })
 
 test('Recent preferences outweigh older records without deleting history', () => {

@@ -1,5 +1,5 @@
-// Explicit one-build preview experiment. No endpoint, secrets or customer data are published.
-if (process.env.VERCEL_ENV !== 'preview' || !process.env.VERCEL_GIT_COMMIT_MESSAGE?.includes('[critic-benchmark]')) process.exit(0)
+// Paid experiment: never runs automatically during a build. Requires explicit operator invocation.
+if (!process.argv.includes('--run-paid-benchmark')) process.exit(0)
 const fs = require('node:fs')
 const { load } = require('../tests/helpers.cjs')
 const ai = load('src/lib/server/ai.ts', { fetch: globalThis.fetch, process: { env: process.env } })
@@ -29,6 +29,6 @@ async function main() {
   console.log('[critic-benchmark]',JSON.stringify(row))
   if(rows.reduce((n,r)=>n+(r.estimatedUSD||0),0)>1) break
  }
- fs.writeFileSync('public/critic-benchmark.json',JSON.stringify({measuredAt:new Date().toISOString(),model:'claude-sonnet-5',scope:'Research only, excluding image extraction. One paired observation per wine, alternating order.',pricingSource:'https://platform.claude.com/docs/en/about-claude/pricing',rows},null,2))
+ fs.writeFileSync('/tmp/vinoteca-critic-benchmark.json',JSON.stringify({measuredAt:new Date().toISOString(),model:'claude-sonnet-5',scope:'Research only, excluding image extraction. One paired observation per wine, alternating order.',pricingSource:'https://platform.claude.com/docs/en/about-claude/pricing',rows},null,2))
 }
 main().catch(()=>{console.error('[critic-benchmark] failed; no secrets emitted'); process.exitCode=1})

@@ -4,6 +4,7 @@ import { supabase } from '@/lib/supabase'
 import { analyzeImage } from '@/lib/aiClient'
 import AnalysisProgress, { type AnalysisStage } from './AnalysisProgress'
 import type { GrapeResearch } from '@/lib/server/grapes'
+import SimpleRange from './SimpleRange'
 import PersonalRating from './PersonalRating'
 import CriticScores from './CriticScores'
 import { type CriticScore, readableCriticScores } from '@/lib/criticScores'
@@ -73,18 +74,6 @@ interface Props {
     </div>
   )
 
-  const SimpleRange = ({ label, hint, display, stored, value, onChange, unselected }: {
-    label: string; hint?: string; unselected: string; display: string[]; stored: string[]; value: string; onChange: (value: string) => void
-  }) => {
-    const current = stored.indexOf(value) < 0 ? Math.floor(stored.length / 2) : stored.indexOf(value)
-    return <div className="mb-5">
-      <div className="flex justify-between gap-3 mb-1"><label className="text-sm font-medium text-ink">{label}</label><span className="text-sm font-medium text-gold-700">{value ? display[current] : unselected}</span></div>
-      {hint && <p className="text-xs text-cave-100 mb-2">{hint}</p>}
-      <input type="range" min="0" max={stored.length - 1} step="1" value={current} onChange={e => onChange(stored[Number(e.target.value)])}
-        className="simple-range w-full" aria-label={label} aria-valuetext={value ? display[current] : unselected} />
-      <div className="flex flex-wrap gap-1 mt-2">{display.map((text,index) => <button key={text} className={`chip min-h-11 ${value === stored[index] ? 'chip-on' : ''}`} aria-pressed={value === stored[index]} onClick={() => onChange(value === stored[index] ? '' : stored[index])}>{text}</button>)}</div>
-    </div>
-  }
 
 
 export default function TastingSheet({ lang, user, onBack, blindSessionId, blindWineNumber, onSaved }: Props) {
@@ -154,7 +143,6 @@ export default function TastingSheet({ lang, user, onBack, blindSessionId, blind
   const [blicI, setBlicI] = useState(0)
   const [blicC, setBlicC] = useState(0)
   const [quality, setQuality] = useState('')
-  const [readiness, setReadiness] = useState('')
   const [stars, setStars] = useState(0)
   const [notes, setNotes] = useState('')
 
@@ -192,7 +180,6 @@ export default function TastingSheet({ lang, user, onBack, blindSessionId, blind
       [setFlavorIntensity,before.palate.intensityLevels,t.palate.intensityLevels],
       [setFinish,before.palate.finishLevels,t.palate.finishLevels],
       [setQuality,before.conclusions.qualityLevels,t.conclusions.qualityLevels],
-      [setReadiness,before.conclusions.readinessLevels,t.conclusions.readinessLevels],
     ]
     pairs.forEach(([set,from,to]) => set(value => remap(value,from,to)))
     setColorHue(value => remap(value,Object.values(before.appearance.colorHues).flat(),Object.values(t.appearance.colorHues).flat()))
@@ -335,7 +322,6 @@ export default function TastingSheet({ lang, user, onBack, blindSessionId, blind
         blic_intensity: blicI || null,
         blic_complexity: blicC || null,
         quality: quality || null,
-        readiness: readiness || null,
         deduction_type: isBlind ? deductionType || null : null,
         deduction_climate: isBlind ? deductionClimate || null : null,
         deduction_grape: isBlind ? deductionGrape || null : null,
@@ -548,8 +534,8 @@ export default function TastingSheet({ lang, user, onBack, blindSessionId, blind
           <DepthSelector simple />
           <SimpleRange unselected={t.tastingGuide.unselected} label={lang === 'ja' ? '香りの強さ' : '향의 강도'} display={lang === 'ja' ? ['とても控えめ','控えめ','ふつう','しっかり','とても強い'] : ['매우 은은함','은은함','보통','뚜렷함','매우 강함']} stored={t.nose.intensityLevels} value={noseIntensity} onChange={setNoseIntensity} />
           <div className="mb-5"><div className="text-sm font-medium text-ink mb-2">{lang === 'ja' ? 'どんな香り？' : '어떤 향인가요?'}</div><ChipGroup options={wineType ? t.simpleAromas[wineType as keyof typeof t.simpleAromas] || [] : []} selected={aromas} onToggle={toggleAroma} /><p className="text-xs text-cave-100 mt-2">{wineType ? t.tastingGuide.aromas : t.tastingGuide.selectType}</p>{aromas.filter(a => !(t.simpleAromas[wineType as keyof typeof t.simpleAromas] || []).includes(a)).map(a => <button key={a} className="chip chip-on mt-2" onClick={() => toggleAroma(a)}>{a} ×</button>)}</div>
-          <SimpleRange unselected={t.tastingGuide.unselected} label={lang === 'ja' ? '甘さ' : '단맛'} display={t.tastingGuide.sweetness} stored={t.palate.sweetnessLevels} value={sweetness} onChange={setSweetness} />
-          <SimpleRange unselected={t.tastingGuide.unselected} label={lang === 'ja' ? '酸っぱさ' : '산미'} display={lang === 'ja' ? ['とても弱い','弱め','中くらい','強め','とても強い'] : ['매우 약함','약함','보통','강함','매우 강함']} stored={t.palate.acidityLevels} value={acidity} onChange={setAcidity} />
+          <SimpleRange unselected={t.tastingGuide.unselected} label={lang === 'ja' ? '甘さ' : '단맛'} display={t.tastingGuide.sweetness.filter((_,i)=>i!==2)} stored={t.palate.sweetnessLevels.filter((_,i)=>i!==2)} value={sweetness} onChange={setSweetness} />
+          <SimpleRange unselected={t.tastingGuide.unselected} label={lang === 'ja' ? '酸味' : '산미'} display={lang === 'ja' ? ['弱い','やや弱い','中くらい','やや強い','強い'] : ['매우 약함','약함','보통','강함','매우 강함']} stored={t.palate.acidityLevels} value={acidity} onChange={setAcidity} />
           {wineType === 'red' && <SimpleRange unselected={t.tastingGuide.unselected} label={lang === 'ja' ? '渋み' : '떫은맛'} display={lang === 'ja' ? ['ほとんど無い','少ない','ふつう','しっかり','とても強い'] : ['거의 없음','적음','보통','뚜렷함','매우 강함']} stored={t.palate.tanninLevels} value={tannin} onChange={setTannin} />}
           {wineType === 'sparkling' && <div className="mb-5"><div className="text-sm font-medium text-ink mb-2">{lang === 'ja' ? '泡の感じ' : '거품의 느낌'}</div><ChipGroup options={lang === 'ja' ? ['繊細','クリーミー','荒い'] : ['섬세함','크리미함','거침']} selected={mousse} onToggle={setMousse} single /></div>}
           <SimpleRange unselected={t.tastingGuide.unselected} label={lang === 'ja' ? '飲み口の重さ' : '마실 때의 무게감'} display={lang === 'ja' ? ['とても軽い','軽い','ふつう','重い','とても重い'] : ['매우 가벼움','가벼움','보통','무거움','매우 무거움']} stored={t.palate.bodyLevels} value={body} onChange={setBody} />
@@ -655,7 +641,6 @@ export default function TastingSheet({ lang, user, onBack, blindSessionId, blind
           </div>
 
           <ScaleRow label={t.tastingGuide.quality} options={t.conclusions.qualityLevels} value={quality} onChange={setQuality} />
-          <ScaleRow label={lang === 'ja' ? '飲み頃' : '음용 시기'} options={t.conclusions.readinessLevels} value={readiness} onChange={setReadiness} />
         </div>}
         </>}
 
