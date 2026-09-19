@@ -62,6 +62,7 @@ export type Database = {
           viscosity: string | null
           // Nose
           nose_intensity: string | null
+          nose_development: string | null
           nose_condition: string | null
           aromas: string[] | null
           // Palate
@@ -100,6 +101,7 @@ export type Database = {
           blind_wine_number: number | null
           notes: string | null
           food_pairing: string[] | null
+          critic_scores: import('./criticScores').CriticScore[] | null
           // Expert scores
           ws_score: number | null
           wa_score: number | null

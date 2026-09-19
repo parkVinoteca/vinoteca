@@ -1,4 +1,5 @@
 // 취향 프로필 계산 로직 — AI 호출 없이 순수 계산
+import { personalRating } from '@/lib/ratings'
 import { RECENCY_WEIGHT_BANDS } from '@/lib/productConfig'
 
 export interface TastingRecord {
@@ -76,7 +77,7 @@ function countTop(items: { value: string | null; weight: number }[], topN = 3): 
 
 export function calculateTasteProfile(records: TastingRecord[]): TasteProfile | null {
   // Callers pass newest first. Keep the weighting deterministic for equal dates.
-  const scored = records.filter(r => r.score !== null || r.stars !== null && r.stars !== undefined)
+  const scored = records.filter(r => personalRating(r) !== null)
   if (scored.length === 0) return null
 
   const weightedAverage = (values: { value: number; weight: number }[]) => {
@@ -84,9 +85,9 @@ export function calculateTasteProfile(records: TastingRecord[]): TasteProfile | 
     return totalWeight ? values.reduce((sum, item) => sum + item.value * item.weight, 0) / totalWeight : 3
   }
 
-  // Expert 10-point scores and simple 5-star likes both contribute.
+  // Both modes use the same personal rating; legacy /10 values are read on /5.
   const preferred = scored.map((record, index) => ({ record, weight: recordWeight(index) }))
-    .filter(({ record }) => (record.score || 0) >= 7 || (record.stars || 0) >= 4)
+    .filter(({ record }) => (personalRating(record) ?? 0) >= 4)
   if (!preferred.length) return null
   const levelAverage = (field: 'body' | 'tannin' | 'acidity' | 'alcohol') => {
     const values = preferred.map(({ record, weight }) => ({ value: scaleToNumber(record[field]), weight }))
@@ -95,7 +96,7 @@ export function calculateTasteProfile(records: TastingRecord[]): TasteProfile | 
   }
 
   const scoreValues = scored.map((record, index) => ({
-    value: record.score ?? (record.stars ? record.stars * 2 : 0), weight: recordWeight(index),
+    value: personalRating(record)!, weight: recordWeight(index),
   }))
 
   return {

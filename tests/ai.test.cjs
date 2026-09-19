@@ -91,7 +91,7 @@ test('Citation-segmented text is reassembled without inserting newlines inside J
  const response=await route(data).POST(request(image));assert.equal(response.status,200)
  assert.equal((await response.json()).result.description,'Producer details and quoted source')
 })
-test('Label quota fallback calls Claude once without another reservation or web search',async()=>{
+test('Label fallback extraction is search-free, followed by one bounded enrichment under the same reservation',async()=>{
  let calls=[],reservations=0
  const mock={...ai,authorize:async()=>({}),reserveUsage:async()=>{reservations++},providerFetch:async(url,init)=>{
   calls.push({url,body:JSON.parse(init.body)})
@@ -100,9 +100,10 @@ test('Label quota fallback calls Claude once without another reservation or web 
  }}
  const handler=load('src/app/api/label/route.ts',{process:{env:{GEMINI_API_KEY:'offline',ANTHROPIC_API_KEY:'offline'}}},{'@/lib/server/ai':mock})
  const response=await handler.POST(request(image));assert.equal(response.status,200)
- assert.equal((await response.json()).provider,'claude');assert.equal(reservations,1);assert.equal(calls.length,2)
+ assert.equal((await response.json()).provider,'claude');assert.equal(reservations,1);assert.equal(calls.length,3)
  assert.equal(calls[1].body.tools,undefined);assert.equal(calls[1].body.max_tokens,1024)
  assert.equal(calls[1].body.output_config.format.type,'json_schema')
+ assert.equal(calls[2].body.tools[0].max_uses,2); assert.equal(calls[2].body.tools[1].max_uses,2)
 })
 test('Label fallback never retries bad credentials, unreadable labels or timeouts',async()=>{
  for(const code of ['provider_auth_failed','provider_timeout','label_unreadable']){

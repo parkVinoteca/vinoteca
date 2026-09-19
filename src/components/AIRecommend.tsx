@@ -106,8 +106,8 @@ export default function AIRecommend({ lang, user, onBack }: Props) {
           finalResult.matchReason = buildMatchReason(lang, matchResult)
         } else {
           finalResult.matchReason = lang === 'ja'
-            ? `このタイプの好みの記録が不足しています（赤${redCount}/3本、白${whiteCount}/3本）。7点以上または★4以上の構造データが必要です。`
-            : `이 유형의 선호 기록이 부족합니다 (레드 ${redCount}/3병, 화이트 ${whiteCount}/3병). 7점 이상 또는 ★4 이상 기록의 구조 정보가 필요합니다.`
+            ? `このタイプの好みの記録が不足しています（赤${redCount}/3本、白${whiteCount}/3本）。4.0 / 5以上の構造データが必要です。`
+            : `이 유형의 선호 기록이 부족합니다 (레드 ${redCount}/3병, 화이트 ${whiteCount}/3병). 4.0 / 5 이상 기록의 구조 정보가 필요합니다.`
         }
 
         if (controller.signal.aborted) return
@@ -233,7 +233,6 @@ export default function AIRecommend({ lang, user, onBack }: Props) {
                 <div key={String(label)} className="grid grid-cols-[88px_1fr] gap-3 py-2"><dt className="text-cave-100">{label}</dt><dd className="font-medium text-ink">{value}</dd></div>
               ))}
             </dl>
-            {result.expertScore && <div className="text-xs text-gold-400 mt-2">⭐ {result.expertScore}</div>}
           </div>
 
           {result.blendRatio && (

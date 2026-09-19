@@ -74,3 +74,11 @@ test('Invented year evidence and ratios are not accepted', async () => {
  assert.equal(result.grapeResearch.vintageMatched, false)
  assert.equal(result.grapeResearch.blendRatio, null)
 })
+test('Rating research also runs for visible grapes without overwriting label varieties', async () => {
+ const s=setup()
+ const result=await s.enrich({...label,grapeVariety:'Merlot'},'ko','offline',true)
+ assert.equal(s.calls(),1)
+ assert.equal(result.grapeVariety,'Merlot')
+ assert.equal(result.grapeResearch.status,'label')
+ assert.equal(result.criticScores.length,0)
+})

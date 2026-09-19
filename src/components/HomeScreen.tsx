@@ -1,5 +1,6 @@
 'use client'
 import { useState, useEffect } from 'react'
+import { personalRating, formatRating } from '@/lib/ratings'
 import { supabase } from '@/lib/supabase'
 import { translations, Language } from '@/i18n'
 import { Screen } from '@/app/page'
@@ -27,7 +28,7 @@ export default function HomeScreen({ lang, user, onNavigate }: Props) {
     const data: any[] = []
     for (let from = 0; ; from += 500) {
       const { data: page, error } = await supabase.from('tastings')
-        .select('id, wine_name, producer, country, score, created_at, wine_type, vintage, label_image_url')
+        .select('id, wine_name, producer, country, score, stars, created_at, wine_type, vintage, label_image_url')
         .eq('user_id', user.id).order('created_at', { ascending: false }).order('id').range(from, from + 499)
       if (error) { setError(t.common.error); return }
       data.push(...(page || []))
@@ -36,9 +37,9 @@ export default function HomeScreen({ lang, user, onNavigate }: Props) {
 
     if (data && data.length > 0) {
       const all = data
-      const withScore = all.filter(d => d.score)
+      const withScore = all.filter(d => personalRating(d) !== null)
       const avgScore = withScore.length > 0
-        ? Math.round(withScore.reduce((s, d) => s + d.score, 0) / withScore.length * 10) / 10
+        ? Math.round(withScore.reduce((s, d) => s + personalRating(d)!, 0) / withScore.length * 10) / 10
         : 0
 
       const countryCounts: Record<string, number> = {}
@@ -63,7 +64,7 @@ export default function HomeScreen({ lang, user, onNavigate }: Props) {
         <div className="text-xs text-cave-100 tracking-widest uppercase mb-1">
           {lang === 'ja' ? 'ようこそ' : '환영합니다'}
         </div>
-        <div className="font-serif text-2xl text-gold-300">Vinoteca</div>
+        <div className="font-serif text-2xl text-gold-700">Vinoteca</div>
         <div className="text-xs text-cave-100 mt-1">{user.email}</div>
       </div>
 
@@ -71,14 +72,14 @@ export default function HomeScreen({ lang, user, onNavigate }: Props) {
       <div className="grid grid-cols-2 gap-3 mb-6">
         {[
           { label: lang === 'ja' ? '記録数' : '기록 수', value: `${stats.total}${lang === 'ja' ? '本' : '병'}`, icon: '🍷' },
-          { label: lang === 'ja' ? '平均スコア' : '평균 점수', value: stats.avgScore || '-', icon: '⭐' },
+          { label: lang === 'ja' ? '平均スコア' : '평균 점수', value: stats.avgScore ? `${stats.avgScore.toFixed(1)} / 5` : '—', icon: '⭐' },
           { label: lang === 'ja' ? 'よく飲む国' : '자주 마시는 나라', value: stats.topCountry, icon: '🌍' },
           { label: lang === 'ja' ? '最近のワイン' : '최근 와인', value: stats.recentWine.length > 10 ? stats.recentWine.slice(0, 10) + '...' : stats.recentWine, icon: '📝' },
         ].map((s, i) => (
           <div key={i} className="card p-4">
             <div className="text-2xl mb-1">{s.icon}</div>
             <div className="text-xs text-cave-100 mb-0.5">{s.label}</div>
-            <div className="font-medium text-gold-300 text-sm">{s.value}</div>
+            <div className="font-medium text-gold-700 text-sm">{s.value}</div>
           </div>
         ))}
       </div>
@@ -93,7 +94,7 @@ export default function HomeScreen({ lang, user, onNavigate }: Props) {
           >
             <span className="text-2xl">📝</span>
             <div>
-              <div className="font-medium text-sm text-gold-300">{t.tasting.normal}</div>
+              <div className="font-medium text-sm text-gold-700">{t.tasting.normal}</div>
               <div className="text-xs text-cave-100">{lang === 'ja' ? 'ラベルを撮影して記録' : '라벨을 찍어 기록'}</div>
             </div>
             <span className="ml-auto text-cave-200">›</span>
@@ -104,7 +105,7 @@ export default function HomeScreen({ lang, user, onNavigate }: Props) {
           >
             <span className="text-2xl">🎭</span>
             <div>
-              <div className="font-medium text-sm text-gold-300">{t.tasting.blind}</div>
+              <div className="font-medium text-sm text-gold-700">{t.tasting.blind}</div>
               <div className="text-xs text-cave-100">{lang === 'ja' ? 'グループセッションを開始' : '그룹 세션 시작'}</div>
             </div>
             <span className="ml-auto text-cave-200">›</span>
@@ -115,7 +116,7 @@ export default function HomeScreen({ lang, user, onNavigate }: Props) {
           >
             <span className="text-2xl">🤖</span>
             <div>
-              <div className="font-medium text-sm text-gold-300">{t.recommend.title}</div>
+              <div className="font-medium text-sm text-gold-700">{t.recommend.title}</div>
               <div className="text-xs text-cave-100">{lang === 'ja' ? '写真でワインを解析' : '사진으로 와인 분석'}</div>
             </div>
             <span className="ml-auto text-cave-200">›</span>
@@ -128,7 +129,7 @@ export default function HomeScreen({ lang, user, onNavigate }: Props) {
         <div>
           <div className="section-title flex items-center justify-between">
             <span>{lang === 'ja' ? '最近の記録' : '최근 기록'}</span>
-            <button onClick={() => onNavigate('cellar')} className="text-gold-400 text-xs normal-case tracking-normal">
+            <button onClick={() => onNavigate('cellar')} className="text-gold-700 text-xs normal-case tracking-normal">
               {lang === 'ja' ? 'すべて見る →' : '전체 보기 →'}
             </button>
           </div>
@@ -152,8 +153,8 @@ export default function HomeScreen({ lang, user, onNavigate }: Props) {
                     {new Date(tasting.created_at).toLocaleDateString(lang === 'ja' ? 'ja-JP' : 'ko-KR')}
                   </div>
                 </div>
-                {tasting.score && (
-                  <div className="text-gold-300 font-serif text-xl font-bold">{tasting.score}</div>
+                {personalRating(tasting) !== null && (
+                  <div className="text-gold-700 font-serif text-xl font-bold">{formatRating(tasting)}<span className="text-xs"> / 5</span></div>
                 )}
               </div>
             ))}

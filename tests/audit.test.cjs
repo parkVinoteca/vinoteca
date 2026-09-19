@@ -19,7 +19,7 @@ test('Japanese and Korean dictionaries have matching keys', () => assert.deepEqu
 for (const [lang, dictionary] of [['ja', ja], ['ko', ko]]) {
   test(`${lang}: every visible palate scale maps to levels 1 through 5`, () => {
     for (const [field, labels] of [['body', dictionary.palate.bodyLevels], ['acidity', dictionary.palate.acidityLevels], ['tannin', dictionary.palate.tanninLevels], ['alcohol', dictionary.palate.alcoholLevels]]) {
-      labels.forEach((label, index) => assert.equal(calculateTasteProfile([{ ...record, [field]: label }])[`${field}Score`], index + 1, `${field}: ${label}`))
+      labels.forEach((label, index) => assert.equal(calculateTasteProfile([{ ...record, [field]: label }])[`${field}Score`], (labels.length === 3 ? index * 2 + 1 : index + 1), `${field}: ${label}`))
     }
   })
 }
@@ -48,6 +48,6 @@ test('Recent preferences outweigh older records without deleting history', () =>
 
 test('Simple-mode stars can build a preference profile without a 10-point score', () => {
   const profile = calculateTasteProfile([{ ...record, score: null, stars: 5, body: 'full', acidity: 'high' }])
-  assert.equal(profile.avgScore, 10)
+  assert.equal(profile.avgScore, 5)
   assert.equal(profile.bodyScore, 5)
 })
