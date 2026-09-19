@@ -1,4 +1,5 @@
 // 취향 프로필 계산 로직 — AI 호출 없이 순수 계산
+import { RECENCY_WEIGHT_BANDS } from '@/lib/productConfig'
 
 export interface TastingRecord {
   wine_type: string | null
@@ -10,6 +11,8 @@ export interface TastingRecord {
   country: string | null
   region: string | null
   score: number | null
+  stars?: number | null
+  created_at?: string
 }
 
 export interface TasteProfile {
@@ -53,12 +56,17 @@ export function normalizeWineTerm(value: string) {
   return aliases[text] || text
 }
 
-function countTop(items: (string | null)[], topN = 3): string[] {
+function recordWeight(index: number): number {
+  const position = index + 1
+  return RECENCY_WEIGHT_BANDS.find(band => position <= band.through)?.weight ?? 0.3
+}
+
+function countTop(items: { value: string | null; weight: number }[], topN = 3): string[] {
   const counts: Record<string, number> = {}
-  items.forEach(item => {
-    if (!item) return
-    const key = normalizeWineTerm(item)
-    counts[key] = (counts[key] || 0) + 1
+  items.forEach(({ value, weight }) => {
+    if (!value) return
+    const key = normalizeWineTerm(value)
+    counts[key] = (counts[key] || 0) + weight
   })
   return Object.entries(counts)
     .sort((a, b) => b[1] - a[1])
@@ -67,29 +75,39 @@ function countTop(items: (string | null)[], topN = 3): string[] {
 }
 
 export function calculateTasteProfile(records: TastingRecord[]): TasteProfile | null {
-  const scored = records.filter(r => r.score !== null)
+  // Callers pass newest first. Keep the weighting deterministic for equal dates.
+  const scored = records.filter(r => r.score !== null || r.stars !== null && r.stars !== undefined)
   if (scored.length === 0) return null
 
-  const avg = (nums: number[]) => nums.length > 0 ? nums.reduce((a, b) => a + b, 0) / nums.length : 3
+  const weightedAverage = (values: { value: number; weight: number }[]) => {
+    const totalWeight = values.reduce((sum, item) => sum + item.weight, 0)
+    return totalWeight ? values.reduce((sum, item) => sum + item.value * item.weight, 0) / totalWeight : 3
+  }
 
-  // A preference profile is based on positively rated wines (7/10 or above).
-  const preferred = scored.filter(r => (r.score || 0) >= 7)
+  // Expert 10-point scores and simple 5-star likes both contribute.
+  const preferred = scored.map((record, index) => ({ record, weight: recordWeight(index) }))
+    .filter(({ record }) => (record.score || 0) >= 7 || (record.stars || 0) >= 4)
   if (!preferred.length) return null
   const levelAverage = (field: 'body' | 'tannin' | 'acidity' | 'alcohol') => {
-    const values = preferred.map(r => scaleToNumber(r[field])).filter((n): n is number => n !== null)
-    return values.length ? Math.round(avg(values) * 10) / 10 : null
+    const values = preferred.map(({ record, weight }) => ({ value: scaleToNumber(record[field]), weight }))
+      .filter((item): item is { value: number; weight: number } => item.value !== null)
+    return values.length ? Math.round(weightedAverage(values) * 10) / 10 : null
   }
+
+  const scoreValues = scored.map((record, index) => ({
+    value: record.score ?? (record.stars ? record.stars * 2 : 0), weight: recordWeight(index),
+  }))
 
   return {
     count: scored.length,
-    avgScore: Math.round(avg(scored.map(r => r.score || 0)) * 10) / 10,
+    avgScore: Math.round(weightedAverage(scoreValues) * 10) / 10,
     bodyScore: levelAverage('body'),
     tanninScore: levelAverage('tannin'),
     acidityScore: levelAverage('acidity'),
     alcoholScore: levelAverage('alcohol'),
-    topGrapes: countTop(preferred.map(r => r.grape_variety)),
-    topRegions: countTop(preferred.map(r => r.region)),
-    topCountries: countTop(preferred.map(r => r.country)),
+    topGrapes: countTop(preferred.map(({ record, weight }) => ({ value: record.grape_variety, weight }))),
+    topRegions: countTop(preferred.map(({ record, weight }) => ({ value: record.region, weight }))),
+    topCountries: countTop(preferred.map(({ record, weight }) => ({ value: record.country, weight }))),
   }
 }
 

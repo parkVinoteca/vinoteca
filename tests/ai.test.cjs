@@ -4,7 +4,7 @@ const { load } = require('./helpers.cjs')
 const ai = load('src/lib/server/ai.ts')
 const image = { imageBase64: Buffer.from([255,216,255,0,0,0]).toString('base64'), imageMediaType: 'image/jpeg', lang: 'ja' }
 const request = body => new Request('http://localhost/api/sommelier', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
-const valid = { wineName: 'Example wine', producer: 'Example producer', vintage: '2020', wineType: 'red', bodyLevel: 3, tanninLevel: 2, acidityLevel: 4, alcoholLevel: 3, characteristics: ['Dry'], priceJPY: 'JPY 3000', priceJPYSource: 'https://example.com/wine', blendRatio: '100% Merlot', blendSource: 'https://invented.example/wine' }
+const valid = { wineName: 'Example wine', producer: 'Example producer', vintage: '2020', wineType: 'red', bodyLevel: 3, tanninLevel: 2, acidityLevel: 4, alcoholLevel: 3, characteristics: ['Dry'], priceJPY: 'JPY 3000', priceJPYSource: 'https://example.com/wine', blendRatio: '100% Merlot', blendSource: 'https://invented.example/wine', drinkingWindow: '2026-2032', drinkingWindowNow: 'Ready now', drinkingWindowSource: 'https://invented.example/window', drinkingWindowBasis: 'exact_vintage' }
 test('Unauthenticated requests are rejected by both AI endpoints', async () => {
   for (const endpoint of ['sommelier','label']) assert.equal((await load(`src/app/api/${endpoint}/route.ts`).POST(request(image))).status, 401)
 })
@@ -36,6 +36,8 @@ test('Sommelier reserves before provider call and removes unsupported source cla
   assert.equal(response.status, 200)
   assert.equal(result.priceJPY, 'JPY 3000')
   assert.equal(result.blendRatio, null)
+  assert.equal(result.drinkingWindow, null)
+  assert.equal(result.drinkingWindowNow, null)
   assert.deepEqual(handler.counts(), { reservations: 1, calls: 1 })
 })
 test('Sommelier rejects invalid AI results, truncation and missing search evidence', async () => {

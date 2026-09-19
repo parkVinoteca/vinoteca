@@ -25,13 +25,13 @@ VercelのProductionとPreviewそれぞれに設定します。秘密値をロー
 
 ## データベース
 
-新規開発DB: `supabase_schema.sql` → `supabase_schema_v2.sql` → `supabase/migrations/20260916_reliability.sql` の順に適用します。
+新規開発DB: `supabase_schema.sql` → `supabase_schema_v2.sql` → `supabase/migrations/20260916_reliability.sql` → `supabase/migrations/20260918_product_foundation.sql` の順に適用します。
 既存DB: 新規作成SQLを再実行せず、レビュー済みのmigrationのみを適用します。
 運用DBでは2026-09-17にmigration適用と読み取り検証が完了しています。
 画像は非公開バケットに保存し、所有者に期限付きURLを発行します。
 
 AI呼び出しはログイン必須。DBが利用枠を確保してから外部APIを呼びます。
-日本時間基準で利用者ごとにソムリエ20回/日・100回/月、ラベル50回/日・300回/月。
+`20260918_product_foundation.sql` 適用後は日本時間基準で、無料会員はテイスティング月10回・ソムリエ月5回、有料会員はテイスティング無制限・ソムリエ月50回です。決済連携までは全員無料会員として作成します。ラベル認識は50回/日・300回/月です。
 プロジェクト全体の月間上限はソムリエ500回、ラベル2,000回、連続呼び出し間隔は10秒です。
 API失敗も予約回数に含みます。これは金額の上限保証ではないため、プロバイダー側の予算管理も必要です。
 
