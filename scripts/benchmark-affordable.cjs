@@ -1,5 +1,5 @@
 // Explicitly approved, one Preview commit only. No secrets or customer images in output.
-if (process.env.VERCEL_ENV !== 'preview' || !process.env.VERCEL_GIT_COMMIT_MESSAGE?.includes('[approved-affordable-evidence]')) process.exit(0)
+if (process.env.VERCEL_ENV !== 'preview' || !process.env.VERCEL_GIT_COMMIT_MESSAGE?.includes('[approved-affordable-documents]')) process.exit(0)
 const fs=require('node:fs'), sharp=require('sharp'), {load}=require('../tests/helpers.cjs')
 const wines=[['Chateau Palmer','Margaux','2019','France'],['Mouton Cadet','Reserve Margaux','2022','France'],['Cloudy Bay','Sauvignon Blanc','2023','New Zealand']]
 const real=load('src/lib/server/ai.ts',{fetch:globalThis.fetch,process:{env:process.env}})
@@ -15,7 +15,7 @@ async function main(){
     try{const data=await real.providerFetch(url,init,timeout);calls.push({model,seconds:(Date.now()-t)/1000,status:'ok',usage:data.usage||data.usageMetadata||null,stop:data.stop_reason||data.candidates?.[0]?.finishReason,diagnostic:data.content ? (()=>{
       const blocks=data.content;let obj={};try{obj=real.parseResult(blocks.filter(x=>x.type==='text').map(x=>x.text).join(''))}catch{}
       const norm=x=>String(x||'').normalize('NFKC').toLowerCase().replace(/\s+/g,' ').trim()
-      const fetched=blocks.filter(x=>x.type==='web_fetch_tool_result').map(x=>({url:x.content?.url,type:x.content?.content?.source?.type,chars:x.content?.content?.source?.data?.length||0, matchesSource:x.content?.url===obj.source, evidenceMatches:Array.isArray(obj.grapes)?obj.grapes.map(g=>({name:g.name,quoteMatches:norm(x.content?.content?.source?.data).includes(norm(g.evidence))})):[]}))
+      const fetched=blocks.filter(x=>x.type==='web_fetch_tool_result').map(x=>({url:x.content?.url,type:x.content?.content?.source?.type,chars:x.content?.content?.source?.data?.length||0, matchesSource:x.content?.url===obj.source,head:x.content?.content?.source?.data?.slice(0,180),tail:x.content?.content?.source?.data?.slice(-180), evidenceMatches:Array.isArray(obj.grapes)?obj.grapes.map(g=>({name:g.name,quoteMatches:norm(x.content?.content?.source?.data).includes(norm(g.evidence))})):[]}))
       return {fields:Object.keys(obj),wineMatched:obj.wineMatched,vintageMatched:obj.vintageMatched,source:obj.source,grapes:obj.grapes,fetched}
      })():null});return data}
     catch(e){calls.push({model,seconds:(Date.now()-t)/1000,status:e.code||'failed'});throw e}
