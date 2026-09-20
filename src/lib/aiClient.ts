@@ -10,7 +10,7 @@ export async function analyzeImage(endpoint: 'label' | 'sommelier', image: { bas
   try {
     const response = await fetch(`/api/${endpoint}`, {
       method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
-      body: JSON.stringify({ imageBase64: image.base64, imageMediaType: image.mediaType, lang }), signal: signal ? AbortSignal.any([signal, AbortSignal.timeout(endpoint === 'label' ? 145000 : 55000)]) : AbortSignal.timeout(endpoint === 'label' ? 145000 : 55000),
+      body: JSON.stringify({ imageBase64: image.base64, imageMediaType: image.mediaType, lang }), signal: signal ? AbortSignal.any([signal, AbortSignal.timeout(endpoint === 'label' ? 175000 : 55000)]) : AbortSignal.timeout(endpoint === 'label' ? 175000 : 55000),
     })
     const body = await response.json()
     if (!response.ok) throw new Error(messages[lang][body.error as keyof typeof messages.ja] || messages[lang].analysis_failed)

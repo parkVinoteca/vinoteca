@@ -59,6 +59,7 @@ export async function reserveUsage(client: Awaited<ReturnType<typeof authorize>>
 }
 export async function providerFetch(url: string, init: RequestInit, timeoutMs = 40000) {
   const provider = url.includes('googleapis.com') ? 'gemini' : 'claude'
+  const started = Date.now()
   try {
     const response = await fetch(url, { ...init, signal: AbortSignal.timeout(Math.min(60000, Math.max(1000, timeoutMs))), cache: 'no-store' })
     if (!response.ok) {
@@ -73,7 +74,21 @@ export async function providerFetch(url: string, init: RequestInit, timeoutMs = 
       console.error('[ai_provider]', JSON.stringify({ provider, status: response.status, code }))
       throw new ApiError(code, 502)
     }
-    return await response.json()
+    const data = await response.json()
+    // Operational cost counters only; no image, prompt, user identity, key, or provider text.
+    const usage = data.usage || data.usageMetadata
+    if (usage) {
+      const number = (v: unknown) => typeof v === 'number' && Number.isFinite(v) ? v : null
+      console.info?.('[ai_usage]', JSON.stringify({provider, milliseconds:Date.now()-started,
+        inputTokens:number(usage.input_tokens ?? usage.promptTokenCount),
+        outputTokens:number(usage.output_tokens ?? usage.candidatesTokenCount),
+        thinkingTokens:number(usage.thoughtsTokenCount),
+        cacheReadTokens:number(usage.cache_read_input_tokens ?? usage.cachedContentTokenCount),
+        cacheWriteTokens:number(usage.cache_creation_input_tokens),
+        searches:number(usage.server_tool_use?.web_search_requests),fetches:number(usage.server_tool_use?.web_fetch_requests),
+      }))
+    }
+    return data
   } catch (error) {
     if (error instanceof ApiError) throw error
     const timeout = error instanceof Error && ['TimeoutError', 'AbortError'].includes(error.name)

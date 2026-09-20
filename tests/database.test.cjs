@@ -44,13 +44,22 @@ test('Fresh schema, migration, owner RLS, private storage and atomic AI quotas',
     await assert.rejects(db.exec("update public.tastings set stars=5.1"))
     // Paid users can make their twentieth request, but not a twenty-first.
     assert.equal((await db.query("select sommelier_monthly_limit from public.subscription_limits where plan='paid'")).rows[0].sommelier_monthly_limit,20)
-    assert.equal((await db.query("select sommelier_monthly_limit from public.subscription_limits where plan='free'")).rows[0].sommelier_monthly_limit,5)
+    assert.equal((await db.query("select sommelier_monthly_limit from public.subscription_limits where plan='free'")).rows[0].sommelier_monthly_limit,20)
     await db.exec(`update public.profiles set plan='paid' where id='00000000-0000-0000-0000-000000000002';
       insert into public.ai_usage_logs(user_id,feature,created_at) select '00000000-0000-0000-0000-000000000002','sommelier',now()-interval '1 minute' from generate_series(1,19);
       set role authenticated;
       select set_config('request.jwt.claim.sub','00000000-0000-0000-0000-000000000002',false);`)
     assert.equal((await db.query("select public.reserve_ai_usage('sommelier') as allowed")).rows[0].allowed,true)
     await db.exec("reset role; update public.ai_usage_logs set created_at=now()-interval '1 minute'; set role authenticated;")
+    assert.equal((await db.query("select public.reserve_ai_usage('sommelier') as allowed")).rows[0].allowed,false)
+    await db.exec('reset role')
+    // Beta free identities also have unlimited manual notes and 20/day access.
+    assert.equal((await db.query("select tasting_monthly_limit from public.subscription_limits where plan='free'")).rows[0].tasting_monthly_limit,null)
+    await db.exec("update public.profiles set plan='free' where id='00000000-0000-0000-0000-000000000002'; delete from public.ai_usage_logs where user_id='00000000-0000-0000-0000-000000000002'; set role authenticated;")
+    for(let i=0;i<20;i++){
+      assert.equal((await db.query("select public.reserve_ai_usage('sommelier') as allowed")).rows[0].allowed,true)
+      await db.exec("reset role; update public.ai_usage_logs set created_at=now()-interval '1 minute' where user_id='00000000-0000-0000-0000-000000000002'; set role authenticated;")
+    }
     assert.equal((await db.query("select public.reserve_ai_usage('sommelier') as allowed")).rows[0].allowed,false)
     await db.exec('reset role')
     assert.equal((await db.query("select public from storage.buckets where id='label-images'")).rows[0].public,false)

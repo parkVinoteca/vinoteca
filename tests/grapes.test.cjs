@@ -7,18 +7,18 @@ const url = 'https://www.moutoncadet.com/fr/vins/reserve-mouton-cadet-margaux/'
 const document = 'Réserve Mouton Cadet Margaux 2022. Varietal mix: Cabernet Sauvignon Power and structure. Merlot Fruit and roundness. Cabernet Franc Freshness and spice.'
 const grapeList = ['Cabernet Sauvignon', 'Merlot', 'Cabernet Franc']
 const facts = { vintageEvidence: 'Réserve Mouton Cadet Margaux 2022', grapes: grapeList.map(name => ({name, evidence: name})), wineMatched: true, vintageMatched: true, grapeVariety: 'Cabernet Sauvignon, Merlot, Cabernet Franc', blendRatio: null, source: url }
-function setup(factsOverride = facts, fail = false) {
+function setup(factsOverride = facts, fail = false, sourceDocument = document) {
  let calls = 0
  const providerFetch = async (_, init) => {
   calls++
   const body = JSON.parse(init.body)
-  assert.equal(body.tools[0].max_uses, 1)
-  assert.equal(body.max_tokens, 1600)
-  assert.equal(body.model, 'claude-haiku-4-5-20251001')
-  assert.equal(body.tools[1].max_uses, 1)
-  assert.equal(body.tools[1].max_content_tokens, 2000)
+  assert.equal(body.model,'claude-haiku-4-5-20251001')
+  if(body.tools){
+    assert.equal(body.tools[0].max_uses,1);assert.equal(body.max_tokens,1600)
+    assert.equal(body.tools[1].max_uses,2);assert.equal(body.tools[1].max_content_tokens,8000)
+  }else assert.equal(body.max_tokens,1400)
   if (fail) throw new ai.ApiError('provider_timeout', 502)
-  return { stop_reason: 'end_turn', content: [{ type: 'web_search_tool_result', content: [{ type: 'web_search_result', url }] }, { type: 'web_fetch_tool_result', content: { type: 'web_fetch_result', url, content: { source: { type: 'text', data: document } } } }, { type: 'text', text: JSON.stringify(factsOverride) }] }
+  return { stop_reason: 'end_turn', content: [{ type: 'web_search_tool_result', content: [{ type: 'web_search_result', url }] }, { type: 'web_fetch_tool_result', content: { type: 'web_fetch_result', url, content: { source: { type: 'text', data: sourceDocument } } } }, { type: 'text', text: JSON.stringify(factsOverride) }] }
  }
  return { enrich: load('src/lib/server/grapes.ts', {}, { '@/lib/server/ai': { ...ai, providerFetch } }).enrichGrapes, calls: () => calls }
 }
@@ -28,7 +28,7 @@ test('Missing label varieties are researched and ratios may remain unknown', asy
  assert.equal(result.grapeResearch.status, 'verified')
  assert.equal(result.grapeResearch.blendRatio, null)
  assert.equal(result.grapeResearch.source, url)
- assert.equal(s.calls(), 1)
+ assert.equal(s.calls(), 2)
 })
 test('Other vintages cannot supply exact blend percentages', async () => {
  const result = await setup({ ...facts, vintageMatched: false, blendRatio: '60% Merlot, 40% Cabernet Sauvignon' }).enrich(label, 'ja', 'offline')
@@ -84,4 +84,11 @@ test('Rating research also runs for visible grapes without overwriting label var
  assert.equal(result.grapeVariety,'Merlot')
  assert.equal(result.grapeResearch.status,'label')
  assert.equal(result.criticScores.length,0)
+})
+
+test('Explicit Cabernet abbreviations verify against actual document, generic Sauvignon does not',async()=>{
+ const good=await setup({...facts,grapes:[{name:'Cabernet Sauvignon',evidence:'53% C.Sauvignon'}]},false,document+' 53% C.Sauvignon.').enrich(label,'ja','offline')
+ assert.equal(good.grapeVariety,'Cabernet Sauvignon')
+ const bad=await setup({...facts,grapes:[{name:'Cabernet Sauvignon',evidence:'Sauvignon Blanc'}]},false,document+' Sauvignon Blanc.').enrich(label,'ja','offline')
+ assert.equal(bad.grapeVariety,null)
 })
