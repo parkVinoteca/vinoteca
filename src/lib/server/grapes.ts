@@ -47,10 +47,12 @@ export async function enrichGrapes(label: Label, lang: 'ja' | 'ko', key?: string
     const normalize = (value: string) => value.normalize('NFKC').toLowerCase().replace(/\s+/g, ' ').trim()
     const document = typeof result.source === 'string' ? documents.get(result.source) : null
     if (result.wineMatched !== true || !document || !Array.isArray(result.grapes) || !result.grapes.length || result.grapes.length > 12) return { ...label, criticScores, grapeResearch: empty('not_found') }
+    // Only unambiguous printed abbreviations; never infer a grape from its region.
+    const grapeName = (value:string) => normalize(value).replace(/\bc\.\s*sauvignon\b/g,'cabernet sauvignon').replace(/\bc\.\s*franc\b/g,'cabernet franc')
     const text = normalize(document)
     const grapes: string[] = []
     for (const grape of result.grapes) {
-      if (!grape || typeof grape.name !== 'string' || !grape.name.trim() || grape.name.length > 80 || typeof grape.evidence !== 'string' || grape.evidence.length > 400 || !normalize(grape.evidence).includes(normalize(grape.name)) || !text.includes(normalize(grape.evidence))) {
+      if (!grape || typeof grape.name !== 'string' || !grape.name.trim() || grape.name.length > 80 || typeof grape.evidence !== 'string' || grape.evidence.length > 400 || !grapeName(grape.evidence).includes(grapeName(grape.name)) || !text.includes(normalize(grape.evidence))) {
         console.warn('[ai_research]', 'grape_evidence_mismatch')
         return { ...label, criticScores, grapeResearch: empty('not_found') }
       }

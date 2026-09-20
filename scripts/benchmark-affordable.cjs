@@ -1,5 +1,5 @@
 // Explicitly approved, one Preview commit only. No secrets or customer images in output.
-if (process.env.VERCEL_ENV !== 'preview' || !process.env.VERCEL_GIT_COMMIT_MESSAGE?.includes('[approved-affordable-documents]')) process.exit(0)
+if (process.env.VERCEL_ENV !== 'preview' || !process.env.VERCEL_GIT_COMMIT_MESSAGE?.includes('[approved-affordable-final]')) process.exit(0)
 const fs=require('node:fs'), sharp=require('sharp'), {load}=require('../tests/helpers.cjs')
 const wines=[['Chateau Palmer','Margaux','2019','France'],['Mouton Cadet','Reserve Margaux','2022','France'],['Cloudy Bay','Sauvignon Blanc','2023','New Zealand']]
 const real=load('src/lib/server/ai.ts',{fetch:globalThis.fetch,process:{env:process.env}})
@@ -8,7 +8,7 @@ async function main(){
  for(const wine of wines){
   const svg=`<svg xmlns="http://www.w3.org/2000/svg" width="650" height="600"><rect width="650" height="600" fill="white"/>${wine.map((s,i)=>`<text x="30" y="${100+i*100}" font-size="40" fill="black">${s}</text>`).join('')}</svg>`
   const image={imageBase64:(await sharp(Buffer.from(svg)).png().toBuffer()).toString('base64'),imageMediaType:'image/png',lang:'ja'}
-  for(const endpoint of ['label','sommelier']){
+  for(const endpoint of ['sommelier']){
    const calls=[]
    const providerFetch=async(url,init,timeout)=>{
     const b=JSON.parse(init.body),model=b.model||url.split('/models/')[1]?.split(':')[0],t=Date.now()
