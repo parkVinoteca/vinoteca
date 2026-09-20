@@ -1,5 +1,5 @@
 // Explicitly approved, one Preview commit only. No secrets or customer images in output.
-if (process.env.VERCEL_ENV !== 'preview' || !process.env.VERCEL_GIT_COMMIT_MESSAGE?.includes('[approved-affordable-probe]')) process.exit(0)
+if (process.env.VERCEL_ENV !== 'preview' || !process.env.VERCEL_GIT_COMMIT_MESSAGE?.includes('[approved-affordable-recheck]')) process.exit(0)
 const fs=require('node:fs'), sharp=require('sharp'), {load}=require('../tests/helpers.cjs')
 const wines=[['Chateau Palmer','Margaux','2019','France'],['Mouton Cadet','Reserve Margaux','2022','France'],['Cloudy Bay','Sauvignon Blanc','2023','New Zealand']]
 const real=load('src/lib/server/ai.ts',{fetch:globalThis.fetch,process:{env:process.env}})
