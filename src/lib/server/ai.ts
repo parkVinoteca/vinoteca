@@ -107,7 +107,7 @@ export function parseResult(text: unknown) {
 function optionalText(value: unknown, max = 1500): string | null {
   if (value === undefined || value === null || value === '' || value === 'null') return null
   if (typeof value !== 'string' || value.length > max) { console.error('[ai_result]', 'invalid_text_field'); throw new ApiError('invalid_ai_result', 502) }
-  return value
+  return value.replace(/<\/?cite\b[^>]*>/gi, '')
 }
 export function validateLabel(input: Record<string, unknown>) {
   const wineName = optionalText(input.wineName, 200)
