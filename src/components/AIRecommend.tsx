@@ -59,7 +59,7 @@ export default function AIRecommend({ lang, user, onBack }: Props) {
     const plan = profile?.plan || 'free'
     const { data: limits } = await supabase.from('subscription_limits').select('sommelier_monthly_limit').eq('plan', plan).maybeSingle()
     setUsageThisMonth(count || 0)
-    setUsageLimit(limits?.sommelier_monthly_limit || (plan === 'paid' ? 50 : 5))
+    setUsageLimit(limits?.sommelier_monthly_limit || 20)
   }
 
   const analyzeWine = async (cropped: { base64: string; mediaType: string }) => {

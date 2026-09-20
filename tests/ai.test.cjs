@@ -80,7 +80,7 @@ test('Label scan uses a bounded extraction model and validates the structured re
  assert.equal(response.status,200);assert.equal((await response.json()).result.vintage,'2015')
  assert.ok(captured.url.includes('gemini-3.5-flash-lite'))
  assert.equal(captured.body.generationConfig.responseJsonSchema.additionalProperties,false)
- assert.equal(captured.body.generationConfig.maxOutputTokens,2048)
+ assert.equal(captured.body.generationConfig.maxOutputTokens,1024)
 })
 
 test('Citation-segmented text is reassembled without inserting newlines inside JSON strings',async()=>{
@@ -91,21 +91,8 @@ test('Citation-segmented text is reassembled without inserting newlines inside J
  const response=await route(data).POST(request(image));assert.equal(response.status,200)
  assert.equal((await response.json()).result.description,'Producer details and quoted source')
 })
-test('Label fallback preserves visible grapes and skips disabled critic research',async()=>{
- let calls=[],reservations=0
- const mock={...ai,authorize:async()=>({}),reserveUsage:async()=>{reservations++},providerFetch:async(url,init)=>{
-  calls.push({url,body:JSON.parse(init.body)})
-  if(calls.length===1)throw new ai.ApiError('provider_busy',502)
-  return {stop_reason:'end_turn',content:[{type:'text',text:JSON.stringify({wineName:'Chateau Margaux',vintage:'2015',wineType:'red',grapeVariety:'Cabernet Sauvignon'})}]}
- }}
- const handler=load('src/app/api/label/route.ts',{process:{env:{GEMINI_API_KEY:'offline',ANTHROPIC_API_KEY:'offline'}}},{'@/lib/server/ai':mock})
- const response=await handler.POST(request(image));assert.equal(response.status,200)
- assert.equal((await response.json()).provider,'claude');assert.equal(reservations,1);assert.equal(calls.length,2)
- assert.equal(calls[1].body.tools,undefined);assert.equal(calls[1].body.max_tokens,1024)
- assert.equal(calls[1].body.output_config.format.type,'json_schema')
-})
-test('Label fallback never retries bad credentials, unreadable labels or timeouts',async()=>{
- for(const code of ['provider_auth_failed','provider_timeout','label_unreadable']){
+test('Unreadable labels do not trigger a paid retry',async()=>{
+ for(const code of ['label_unreadable','invalid_ai_result','analysis_failed']){
   let calls=0
   const mock={...ai,authorize:async()=>({}),reserveUsage:async()=>{},providerFetch:async()=>{calls++;throw new ai.ApiError(code,502)}}
   const handler=load('src/app/api/label/route.ts',{process:{env:{GEMINI_API_KEY:'offline',ANTHROPIC_API_KEY:'offline'}}},{'@/lib/server/ai':mock})
@@ -119,4 +106,56 @@ test('Sommelier conversation is accepted only with an observed source and stays 
  assert.equal(result.sommelierCommentSource,'https://example.com/wine')
  assert.equal(result.sommelierComment,'果実味が魅力の一本ですね。')
  assert.equal(result.drinkingWindow,undefined)
+})
+
+test('Sommelier uses bounded Haiku searches and bounded evidence fetching without premium retry',async()=>{
+ let calls=0
+ const handler=route(responseData(),{providerFetch:async(url,init)=>{
+  calls++;const body=JSON.parse(init.body)
+  assert.equal(body.model,'claude-haiku-4-5-20251001')
+  assert.equal(body.tools.length,2);assert.equal(body.tools[0].max_uses,2)
+  assert.equal(body.max_tokens,2400)
+  return responseData()
+ }})
+ assert.equal((await handler.POST(request(image))).status,200);assert.equal(calls,1)
+})
+
+test('Gemini outage uses Haiku once and a warm server skips the exhausted provider',async()=>{
+ for(const code of ['provider_busy','provider_billing','provider_timeout','provider_unavailable','provider_auth_failed','provider_model_unavailable']){
+  const calls=[];let reservations=0
+  const mock={...ai,authorize:async()=>({}),reserveUsage:async()=>{reservations++},providerFetch:async(url,init)=>{
+   const body=JSON.parse(init.body);calls.push({url,body})
+   if(url.includes('googleapis'))throw new ai.ApiError(code,502)
+   return {stop_reason:'end_turn',content:[{type:'text',text:JSON.stringify({wineName:'Test',grapeVariety:'Merlot'})}]}
+  }}
+  const handler=load('src/app/api/label/route.ts',{process:{env:{GEMINI_API_KEY:'offline',ANTHROPIC_API_KEY:'offline'}}},{'@/lib/server/ai':mock})
+  for(let i=0;i<2;i++){const r=await handler.POST(request(image));assert.equal(r.status,200);assert.equal((await r.json()).provider,'claude')}
+  assert.equal(calls.length,3);assert.equal(reservations,2)
+  for(const c of calls.slice(1)){assert.equal(c.body.model,'claude-haiku-4-5-20251001');assert.equal(c.body.tools,undefined);assert.equal(c.body.max_tokens,1024)}
+ }
+})
+test('Missing Gemini key can still use Haiku and double outages fail without looping',async()=>{
+ for(const failed of [false,true]){
+  let calls=0
+  const mock={...ai,authorize:async()=>({}),reserveUsage:async()=>{},providerFetch:async()=>{calls++;if(failed)throw new ai.ApiError('provider_busy',502);return {stop_reason:'end_turn',content:[{type:'text',text:JSON.stringify({wineName:'Test',grapeVariety:'Merlot'})}]}}}
+  const handler=load('src/app/api/label/route.ts',{process:{env:{ANTHROPIC_API_KEY:'offline'}}},{'@/lib/server/ai':mock})
+  assert.equal((await handler.POST(request(image))).status,failed?502:200);assert.equal(calls,1)
+ }
+})
+
+test('Provider citation markup is not shown as wine description text',()=>{
+ const result=ai.validateSommelier({...valid,description:'<cite index="1-1">Wine description</cite>'})
+ assert.equal(result.description,'Wine description')
+})
+
+test('Sommelier grapes and blend require fetched evidence, never fermentation percentages',async()=>{
+ const source='https://example.com/wine',doc='Example wine Example producer 2020. Varieties: Merlot. Blend: 100% Merlot. Fermentation: 95% stainless steel, 5% oak.'
+ for(const [blend,expected] of [['100% Merlot','100% Merlot'],['95% stainless steel, 5% oak',null]]){
+  const data=responseData({...valid,grapeVariety:'Merlot',grapeSource:source,grapeEvidence:'Varieties: Merlot.',blendRatio:blend,blendSource:source})
+  data.content.push({type:'web_fetch_tool_result',content:{url:source,content:{source:{type:'text',data:doc}}}})
+  const result=(await (await route(data).POST(request(image))).json()).result
+  assert.equal(result.grapeVariety,'Merlot');assert.equal(result.blendRatio,expected)
+ }
+ const r=(await (await route(responseData({...valid,grapeVariety:'Invented grape'})).POST(request(image))).json()).result
+ assert.equal(r.grapeVariety,null)
 })

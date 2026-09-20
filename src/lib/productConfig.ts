@@ -1,4 +1,4 @@
-export const APP_VERSION = '1.3'
+export const APP_VERSION = '1.3.1'
 export const TASTE_PROFILE_RECORD_LIMIT = 300
 export const TASTE_PROFILE_MIN_RECORDS = 3
 

@@ -17,7 +17,7 @@ test('Fresh schema, migration, owner RLS, private storage and atomic AI quotas',
       create function storage.foldername(text) returns text[] language sql immutable as $$ select string_to_array($1, '/') $$;
       grant usage on schema public, auth, storage to authenticated;
       grant select, insert, delete on storage.objects to authenticated;`)
-    for (const file of ['supabase_schema.sql','supabase_schema_v2.sql','supabase/migrations/20260916_reliability.sql','supabase/migrations/20260918_product_foundation.sql','supabase/migrations/20260919_tasting_v13.sql']) await db.exec(fs.readFileSync(path.resolve(__dirname,'..',file),'utf8'))
+    for (const file of ['supabase_schema.sql','supabase_schema_v2.sql','supabase/migrations/20260916_reliability.sql','supabase/migrations/20260918_product_foundation.sql','supabase/migrations/20260919_tasting_v13.sql','supabase/migrations/20260920_affordable_sommelier.sql']) await db.exec(fs.readFileSync(path.resolve(__dirname,'..',file),'utf8'))
     await db.exec(`insert into auth.users values ('00000000-0000-0000-0000-000000000001'),('00000000-0000-0000-0000-000000000002');
       grant select, insert, update, delete on public.tastings, public.blind_sessions to authenticated;
       grant select on public.ai_usage_logs to authenticated;
@@ -42,6 +42,26 @@ test('Fresh schema, migration, owner RLS, private storage and atomic AI quotas',
     const savedRating = (await db.query("select stars::text, score, critic_scores from public.tastings where wine_name='Private wine'")).rows[0]
     assert.equal(savedRating.stars, '4.1'); assert.equal(savedRating.score, 8); assert.equal(savedRating.critic_scores[0].score, 92)
     await assert.rejects(db.exec("update public.tastings set stars=5.1"))
+    // Paid users can make their twentieth request, but not a twenty-first.
+    assert.equal((await db.query("select sommelier_monthly_limit from public.subscription_limits where plan='paid'")).rows[0].sommelier_monthly_limit,20)
+    assert.equal((await db.query("select sommelier_monthly_limit from public.subscription_limits where plan='free'")).rows[0].sommelier_monthly_limit,20)
+    await db.exec(`update public.profiles set plan='paid' where id='00000000-0000-0000-0000-000000000002';
+      insert into public.ai_usage_logs(user_id,feature,created_at) select '00000000-0000-0000-0000-000000000002','sommelier',now()-interval '1 minute' from generate_series(1,19);
+      set role authenticated;
+      select set_config('request.jwt.claim.sub','00000000-0000-0000-0000-000000000002',false);`)
+    assert.equal((await db.query("select public.reserve_ai_usage('sommelier') as allowed")).rows[0].allowed,true)
+    await db.exec("reset role; update public.ai_usage_logs set created_at=now()-interval '1 minute'; set role authenticated;")
+    assert.equal((await db.query("select public.reserve_ai_usage('sommelier') as allowed")).rows[0].allowed,false)
+    await db.exec('reset role')
+    // Beta free identities also have unlimited manual notes and 20/day access.
+    assert.equal((await db.query("select tasting_monthly_limit from public.subscription_limits where plan='free'")).rows[0].tasting_monthly_limit,null)
+    await db.exec("update public.profiles set plan='free' where id='00000000-0000-0000-0000-000000000002'; delete from public.ai_usage_logs where user_id='00000000-0000-0000-0000-000000000002'; set role authenticated;")
+    for(let i=0;i<20;i++){
+      assert.equal((await db.query("select public.reserve_ai_usage('sommelier') as allowed")).rows[0].allowed,true)
+      await db.exec("reset role; update public.ai_usage_logs set created_at=now()-interval '1 minute' where user_id='00000000-0000-0000-0000-000000000002'; set role authenticated;")
+    }
+    assert.equal((await db.query("select public.reserve_ai_usage('sommelier') as allowed")).rows[0].allowed,false)
+    await db.exec('reset role')
     assert.equal((await db.query("select public from storage.buckets where id='label-images'")).rows[0].public,false)
   } finally { await db.close() }
 })
