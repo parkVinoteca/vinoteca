@@ -80,7 +80,7 @@ test('Label scan uses a bounded extraction model and validates the structured re
  assert.equal(response.status,200);assert.equal((await response.json()).result.vintage,'2015')
  assert.ok(captured.url.includes('gemini-3.5-flash-lite'))
  assert.equal(captured.body.generationConfig.responseJsonSchema.additionalProperties,false)
- assert.equal(captured.body.generationConfig.maxOutputTokens,2048)
+ assert.equal(captured.body.generationConfig.maxOutputTokens,1024)
 })
 
 test('Citation-segmented text is reassembled without inserting newlines inside JSON strings',async()=>{
@@ -91,21 +91,8 @@ test('Citation-segmented text is reassembled without inserting newlines inside J
  const response=await route(data).POST(request(image));assert.equal(response.status,200)
  assert.equal((await response.json()).result.description,'Producer details and quoted source')
 })
-test('Label fallback preserves visible grapes and skips disabled critic research',async()=>{
- let calls=[],reservations=0
- const mock={...ai,authorize:async()=>({}),reserveUsage:async()=>{reservations++},providerFetch:async(url,init)=>{
-  calls.push({url,body:JSON.parse(init.body)})
-  if(calls.length===1)throw new ai.ApiError('provider_busy',502)
-  return {stop_reason:'end_turn',content:[{type:'text',text:JSON.stringify({wineName:'Chateau Margaux',vintage:'2015',wineType:'red',grapeVariety:'Cabernet Sauvignon'})}]}
- }}
- const handler=load('src/app/api/label/route.ts',{process:{env:{GEMINI_API_KEY:'offline',ANTHROPIC_API_KEY:'offline'}}},{'@/lib/server/ai':mock})
- const response=await handler.POST(request(image));assert.equal(response.status,200)
- assert.equal((await response.json()).provider,'claude');assert.equal(reservations,1);assert.equal(calls.length,2)
- assert.equal(calls[1].body.tools,undefined);assert.equal(calls[1].body.max_tokens,1024)
- assert.equal(calls[1].body.output_config.format.type,'json_schema')
-})
-test('Label fallback never retries bad credentials, unreadable labels or timeouts',async()=>{
- for(const code of ['provider_auth_failed','provider_timeout','label_unreadable']){
+test('Low-cost label never escalates quota, billing or other failures to Claude',async()=>{
+ for(const code of ['provider_busy','provider_billing','provider_auth_failed','provider_timeout','label_unreadable']){
   let calls=0
   const mock={...ai,authorize:async()=>({}),reserveUsage:async()=>{},providerFetch:async()=>{calls++;throw new ai.ApiError(code,502)}}
   const handler=load('src/app/api/label/route.ts',{process:{env:{GEMINI_API_KEY:'offline',ANTHROPIC_API_KEY:'offline'}}},{'@/lib/server/ai':mock})
@@ -119,4 +106,16 @@ test('Sommelier conversation is accepted only with an observed source and stays 
  assert.equal(result.sommelierCommentSource,'https://example.com/wine')
  assert.equal(result.sommelierComment,'果実味が魅力の一本ですね。')
  assert.equal(result.drinkingWindow,undefined)
+})
+
+test('Sommelier uses one bounded Haiku search without premium retry',async()=>{
+ let calls=0
+ const handler=route(responseData(),{providerFetch:async(url,init)=>{
+  calls++;const body=JSON.parse(init.body)
+  assert.equal(body.model,'claude-haiku-4-5-20251001')
+  assert.equal(body.tools.length,1);assert.equal(body.tools[0].max_uses,1)
+  assert.equal(body.max_tokens,1600)
+  return responseData()
+ }})
+ assert.equal((await handler.POST(request(image))).status,200);assert.equal(calls,1)
 })

@@ -2,7 +2,7 @@ export const ko = {
   analysis: {
     "uploadDone": "사진 준비가 완료되었습니다",
     "title": "AI가 사진을 분석 중입니다",
-    "subtitle": "라벨과 검색 자료에 따라 시간이 걸릴 수 있습니다.",
+    "subtitle": "AI가 정확한 분석을 위해 라벨과 자료를 확인하고 있습니다. 와인에 따라 시간이 조금 더 걸릴 수 있습니다.",
     "upload": "사진을 준비하고 있습니다",
     "analyze": "와인 식별·정보 확인 중",
     "organize": "결과를 정리하고 있습니다",
