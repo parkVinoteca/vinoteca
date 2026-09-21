@@ -1,8 +1,8 @@
 # Vinoteca — AI 모델·비용 노트
 
-갱신: 2026-09-21 · v1.3.2 · [PR #10](https://github.com/parkVinoteca/vinoteca/pull/10) main 병합 완료(8071a5b), Vercel Production Ready 확인. 사용자가 새 무료 프로젝트의 Gemini 키를 Production에 직접 저장했고 운영 사진 분석도 성공했다.
+갱신: 2026-09-21 · v1.4 운영 배포 완료. [PR #11](https://github.com/parkVinoteca/vinoteca/pull/11) main 병합(fc151d8), Vercel Production Ready 및 운영 화면 v1.4·기존 기록3건 확인. main 검사도 모두 통과했다.
 
-## v1.4 출시 — 배포 승인됨
+## v1.4 출시 — 운영 반영 완료
 
 사용자가 2026-09-21 운영 배포를 승인하고 v1.4를 지정했다. 아래 실측은 동일 분석 코드의 v1.3.3 Preview에서 수행했다. 출시 버전 표기만1.4(패키지1.4.0)로 변경한다.
 
