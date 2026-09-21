@@ -44,6 +44,13 @@ test('Unresolved identities leave producer and geography blank and expose review
  const r=identity.unverifiedWine({...reading,producer:'Proyecto',region:'Guarda Superior',country:'Spain'})
  assert.equal(r.wineResearch.status,'unverified');assert.equal(r.producer,null);assert.equal(r.region,null);assert.equal(r.country,null)
 })
+test('Country and region may use separate quotes from the same fetched document',()=>{
+ const split={...evidence,identityEvidence:'Domaine Rivage. Rivage Reserve.',countryEvidence:'France, Loire.',regionEvidence:'France, Loire.'}
+ const result=identity.verifyWineIdentity(split,doc,observed)
+ assert.equal(result.country,'France');assert.equal(result.region,'Loire')
+ const wrong=identity.verifyWineIdentity({...split,countryEvidence:'Spain',identity:{...split.identity,country:'Spain'}},doc,observed)
+ assert.equal(wrong.country,null)
+})
 test('Reviewed cuvee avoids research and credentials entirely',async()=>{
  const resolver=load('src/lib/server/wineLookup.ts',{}, {'next/cache':{unstable_cache:()=>{throw new Error('should not cache curated facts')}},'@/lib/server/grapes':{enrichGrapes:()=>{throw new Error('should not research curated facts')}}})
  assert.equal((await resolver.resolveWine(reading)).wineResearch.status,'catalog')
