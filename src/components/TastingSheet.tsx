@@ -4,6 +4,7 @@ import { supabase } from '@/lib/supabase'
 import { analyzeImage } from '@/lib/aiClient'
 import AnalysisProgress, { type AnalysisStage } from './AnalysisProgress'
 import type { GrapeResearch } from '@/lib/server/grapes'
+import type { WineResearch } from '@/lib/server/wineIdentity'
 import SimpleRange from './SimpleRange'
 import PersonalRating from './PersonalRating'
 import CriticScores from './CriticScores'
@@ -91,6 +92,7 @@ export default function TastingSheet({ lang, user, onBack, blindSessionId, blind
   const [analysisStage, setAnalysisStage] = useState<AnalysisStage>('upload')
   const analysisRequest = useRef<AbortController | null>(null)
   const [grapeResearch, setGrapeResearch] = useState<GrapeResearch | null>(null)
+  const [wineResearch, setWineResearch] = useState<WineResearch | null>(null)
   const [grapeEdited, setGrapeEdited] = useState(false)
   useEffect(() => () => analysisRequest.current?.abort(), [])
   const cancelAnalysis = () => { analysisRequest.current?.abort(); setAnalyzing(false); setMessage(t.analysis.cancelled) }
@@ -243,6 +245,7 @@ export default function TastingSheet({ lang, user, onBack, blindSessionId, blind
     setCriticScores([])
     setResearchedIdentity('')
     setGrapeResearch(null)
+    setWineResearch(null)
     setGrapeEdited(false)
     setAnalyzing(true)
     setMessage('')
@@ -261,6 +264,7 @@ export default function TastingSheet({ lang, user, onBack, blindSessionId, blind
         if (controller.signal.aborted) return
         setAnalysisStage('organize')
         setGrapeResearch(info.grapeResearch || null)
+        setWineResearch(info.wineResearch || null)
         setWineName(info.wineName || '')
         setProducer(info.producer || '')
         setVintage(info.vintage && /^\d{4}$/.test(info.vintage) ? info.vintage : '')
@@ -460,6 +464,10 @@ export default function TastingSheet({ lang, user, onBack, blindSessionId, blind
         {!isBlind && (
           <div>
             <div className="section-title">{lang === 'ja' ? 'ワイン情報' : '와인 정보'}</div>
+            {wineResearch && <div role="status" className="mb-4 border border-gold-900/20 bg-cave-600/20 p-3 text-xs leading-6 text-cave-100">
+              <p>{identity !== researchedIdentity ? t.analysis.identityEdited : wineResearch.status === 'catalog' ? t.analysis.identityCatalog : wineResearch.status === 'verified' ? t.analysis.identityVerified : t.analysis.identityUnverified}</p>
+              {identity === researchedIdentity && wineResearch.source && <a href={wineResearch.source} target="_blank" rel="noopener noreferrer" className="text-gold-700 underline">{t.analysis.identitySource} ↗</a>}
+            </div>}
             <div className="space-y-3">
               {[
                 { label: t.tasting.wineName, value: wineName, onChange: setWineName },

@@ -1,4 +1,4 @@
-export const APP_VERSION = '1.3.1'
+export const APP_VERSION = '1.3.2'
 export const TASTE_PROFILE_RECORD_LIMIT = 300
 export const TASTE_PROFILE_MIN_RECORDS = 3
 
@@ -14,4 +14,3 @@ export const CURRENT_WINE_TYPES: CurrentWineType[] = ['white', 'red', 'sparkling
 // Historic `sweet` records remain readable. New records classify sweetness separately.
 export const isCurrentWineType = (value: string): value is CurrentWineType =>
   CURRENT_WINE_TYPES.includes(value as CurrentWineType)
-
