@@ -69,3 +69,19 @@ test('Cache write failure after research does not issue a second paid research r
  })
  await resolver.resolveWine(observed,'key');assert.equal(calls,1)
 })
+test('General research corrects all identity roles even when OCR already read a grape',async()=>{
+ const ai=load('src/lib/server/ai.ts')
+ const url='https://winery.example/rivage-reserve'
+ let calls=0
+ const enrich=load('src/lib/server/grapes.ts',{}, {'@/lib/server/ai':{...ai,providerFetch:async(_,init)=>{
+  calls++
+  const body=JSON.parse(init.body)
+  if(calls===1)assert.ok(body.messages[0].content.includes('TRANSCRIPTION'))
+  const facts={...evidence,source:url,vintageMatched:true,vintageEvidence:'2021',grapes:[{name:'Cabernet Franc',evidence:'Cabernet Franc'}],blendRatio:null}
+  return {stop_reason:'end_turn',content:[{type:'web_search_tool_result',content:[{type:'web_search_result',url}]},{type:'web_fetch_tool_result',content:{type:'web_fetch_result',url,content:{source:{type:'text',data:doc}}}},{type:'text',text:JSON.stringify(facts)}]}
+ }}}).enrichGrapes
+ const badRoles={...observed,producer:'Rivage',region:'Reserve',grapeVariety:'Cabernet Franc'}
+ const result=await enrich(badRoles,'ko','test-key',false,badRoles)
+ assert.equal(calls,2);assert.equal(result.producer,'Domaine Rivage');assert.equal(result.region,'Loire')
+ assert.equal(result.grapeVariety,'Cabernet Franc');assert.equal(result.wineResearch.status,'verified')
+})

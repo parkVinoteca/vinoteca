@@ -112,7 +112,9 @@ export default function TastingSheet({ lang, user, onBack, blindSessionId, blind
   const [wineType, setWineType] = useState('')
   const [criticScores, setCriticScores] = useState<CriticScore[]>([])
   const [researchedIdentity, setResearchedIdentity] = useState('')
+  const [researchedFacts, setResearchedFacts] = useState('')
   const identity = JSON.stringify([wineName, producer, vintage])
+  const factsUnchanged = JSON.stringify([wineName, producer, vintage, region, country, grapeVariety, wineType]) === researchedFacts
   const verifiedScores = identity === researchedIdentity ? criticScores : []
 
   // Appearance
@@ -251,7 +253,7 @@ export default function TastingSheet({ lang, user, onBack, blindSessionId, blind
       // A failed replacement scan must not leave the previous bottle's facts
       // attached to the newly uploaded photograph.
       setWineName(''); setProducer(''); setVintage(''); setRegion(''); setCountry(''); setGrapeVariety('')
-      setCriticScores([]); setResearchedIdentity('')
+      setWineType(''); setCriticScores([]); setResearchedIdentity(''); setResearchedFacts('')
     }
     setAnalyzing(true)
     setMessage('')
@@ -280,6 +282,7 @@ export default function TastingSheet({ lang, user, onBack, blindSessionId, blind
         selectWineType(info.wineType || '', false)
         setCriticScores(readableCriticScores(info.criticScores))
         setResearchedIdentity(JSON.stringify([info.wineName || '', info.producer || '', info.vintage && /^\d{4}$/.test(info.vintage) ? info.vintage : '']))
+        setResearchedFacts(JSON.stringify([info.wineName || '', info.producer || '', info.vintage && /^\d{4}$/.test(info.vintage) ? info.vintage : '', info.region || '', info.country || '', info.grapeVariety || '', info.wineType || '']))
       }
     } catch (error) {
       if (!controller.signal.aborted) setMessage(error instanceof Error ? error.message : t.common.error)
@@ -471,8 +474,8 @@ export default function TastingSheet({ lang, user, onBack, blindSessionId, blind
           <div>
             <div className="section-title">{lang === 'ja' ? 'ワイン情報' : '와인 정보'}</div>
             {wineResearch && <div role="status" className="mb-4 border border-gold-900/20 bg-cave-600/20 p-3 text-xs leading-6 text-cave-100">
-              <p>{identity !== researchedIdentity ? t.analysis.identityEdited : wineResearch.status === 'catalog' ? t.analysis.identityCatalog : wineResearch.status === 'verified' ? t.analysis.identityVerified : t.analysis.identityUnverified}</p>
-              {identity === researchedIdentity && wineResearch.source && <a href={wineResearch.source} target="_blank" rel="noopener noreferrer" className="text-gold-700 underline">{t.analysis.identitySource} ↗</a>}
+              <p>{!factsUnchanged ? t.analysis.identityEdited : wineResearch.status === 'catalog' ? t.analysis.identityCatalog : wineResearch.status === 'verified' ? t.analysis.identityVerified : t.analysis.identityUnverified}</p>
+              {factsUnchanged && wineResearch.source && <a href={wineResearch.source} target="_blank" rel="noopener noreferrer" className="text-gold-700 underline">{t.analysis.identitySource} ↗</a>}
             </div>}
             <div className="space-y-3">
               {[
@@ -495,11 +498,11 @@ export default function TastingSheet({ lang, user, onBack, blindSessionId, blind
                     className="input-field"
                   />
                   {field.label === t.tasting.grapeVariety && grapeResearch && <div id="grape-research-note" className="mt-2 space-y-1 text-xs leading-6 text-cave-100">
-                    {grapeEdited && <p>{t.analysis.edited}</p>}
+                    {(grapeEdited || identity !== researchedIdentity) && <p>{t.analysis.edited}</p>}
                     {grapeResearch.status === 'not_found' && <p>{t.analysis.notFound}</p>}
                     {grapeResearch.status === 'unavailable' && <p>{t.analysis.unavailable}</p>}
                     {grapeResearch.status === 'label' && <p>{t.analysis.labelOnly}</p>}
-                    {grapeResearch.status === 'verified' && <>
+                    {grapeResearch.status === 'verified' && !grapeEdited && identity === researchedIdentity && <>
                       {!grapeResearch.vintageMatched && <p>{t.analysis.vintageUnknown}</p>}
                       <p>{grapeResearch.blendRatio ? `${t.analysis.blend}: ${grapeResearch.blendRatio}` : t.analysis.ratioMissing}</p>
                       {grapeResearch.source && <a href={grapeResearch.source} target="_blank" rel="noopener noreferrer" className="text-gold-700 underline">{t.analysis.source} ↗</a>}
