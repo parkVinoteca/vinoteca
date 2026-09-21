@@ -71,7 +71,7 @@ export async function providerFetch(url: string, init: RequestInit, timeoutMs = 
       else if (response.status === 429) code = 'provider_busy'
       else if (/credit balance|billing|payment|insufficient.*credit/i.test(message) || response.status === 402) code = 'provider_billing'
       else if (response.status === 404) code = 'provider_model_unavailable'
-      console.error('[ai_provider]', JSON.stringify({ provider, status: response.status, code }))
+      console.error('[ai_provider]', JSON.stringify({ provider, status: response.status, code, milliseconds: Date.now() - started }))
       throw new ApiError(code, 502)
     }
     const data = await response.json()
@@ -92,6 +92,7 @@ export async function providerFetch(url: string, init: RequestInit, timeoutMs = 
   } catch (error) {
     if (error instanceof ApiError) throw error
     const timeout = error instanceof Error && ['TimeoutError', 'AbortError'].includes(error.name)
+    console.warn('[ai_provider]', JSON.stringify({ provider, code: timeout ? 'provider_timeout' : 'provider_unavailable', milliseconds: Date.now() - started }))
     throw new ApiError(timeout ? 'provider_timeout' : 'provider_unavailable', 502)
   }
 }

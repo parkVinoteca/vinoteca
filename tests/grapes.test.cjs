@@ -15,7 +15,7 @@ function setup(factsOverride = facts, fail = false, sourceDocument = document) {
   assert.equal(body.model,'claude-haiku-4-5-20251001')
   if(body.tools){
     assert.equal(body.tools[0].max_uses,1);assert.equal(body.max_tokens,1600)
-    assert.equal(body.tools[1].max_uses,2);assert.equal(body.tools[1].max_content_tokens,8000)
+    assert.equal(body.tools[1].max_uses,2);assert.equal(body.tools[1].max_content_tokens,2500)
   }else assert.equal(body.max_tokens,1400)
   if (fail) throw new ai.ApiError('provider_timeout', 502)
   return { stop_reason: 'end_turn', content: [{ type: 'web_search_tool_result', content: [{ type: 'web_search_result', url }] }, { type: 'web_fetch_tool_result', content: { type: 'web_fetch_result', url, content: { source: { type: 'text', data: sourceDocument } } } }, { type: 'text', text: JSON.stringify(factsOverride) }] }

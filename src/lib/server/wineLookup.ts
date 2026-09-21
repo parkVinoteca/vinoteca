@@ -1,4 +1,5 @@
 import { unstable_cache } from 'next/cache'
+import { knowledgeResult } from '@/lib/server/wineAnalysis'
 import { enrichGrapes } from '@/lib/server/grapes'
 import { findReviewedWine, normalizeWineText, type WineReading } from '@/lib/server/wineIdentity'
 
@@ -8,6 +9,8 @@ import { findReviewedWine, normalizeWineText, type WineReading } from '@/lib/ser
 export async function resolveWine(reading: WineReading, key?: string) {
   const reviewed = findReviewedWine(reading)
   if (reviewed) return reviewed
+  const suggested = knowledgeResult(reading)
+  if (suggested) return suggested
   const lookup = async () => enrichGrapes(reading, 'ja', key, false, reading)
   type Result = Awaited<ReturnType<typeof lookup>>
   let completed: Result | undefined

@@ -474,7 +474,7 @@ export default function TastingSheet({ lang, user, onBack, blindSessionId, blind
           <div>
             <div className="section-title">{lang === 'ja' ? 'ワイン情報' : '와인 정보'}</div>
             {wineResearch && <div role="status" className="mb-4 border border-gold-900/20 bg-cave-600/20 p-3 text-xs leading-6 text-cave-100">
-              <p>{!factsUnchanged ? t.analysis.identityEdited : wineResearch.status === 'catalog' ? t.analysis.identityCatalog : wineResearch.status === 'verified' ? t.analysis.identityVerified : t.analysis.identityUnverified}</p>
+              <p>{!factsUnchanged ? t.analysis.identityEdited : wineResearch.status === 'catalog' ? t.analysis.identityCatalog : wineResearch.status === 'knowledge' ? t.analysis.identityKnowledge : wineResearch.status === 'verified' ? t.analysis.identityVerified : t.analysis.identityUnverified}</p>
               {factsUnchanged && wineResearch.source && <a href={wineResearch.source} target="_blank" rel="noopener noreferrer" className="text-gold-700 underline">{t.analysis.identitySource} ↗</a>}
             </div>}
             <div className="space-y-3">
@@ -502,6 +502,7 @@ export default function TastingSheet({ lang, user, onBack, blindSessionId, blind
                     {grapeResearch.status === 'not_found' && <p>{t.analysis.notFound}</p>}
                     {grapeResearch.status === 'unavailable' && <p>{t.analysis.unavailable}</p>}
                     {grapeResearch.status === 'label' && <p>{t.analysis.labelOnly}</p>}
+                    {grapeResearch.status === 'knowledge' && !grapeEdited && factsUnchanged && <p>{t.analysis.grapeKnowledge}</p>}
                     {grapeResearch.status === 'verified' && !grapeEdited && identity === researchedIdentity && <>
                       {!grapeResearch.vintageMatched && <p>{t.analysis.vintageUnknown}</p>}
                       <p>{grapeResearch.blendRatio ? `${t.analysis.blend}: ${grapeResearch.blendRatio}` : t.analysis.ratioMissing}</p>

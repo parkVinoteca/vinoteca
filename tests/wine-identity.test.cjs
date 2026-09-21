@@ -82,6 +82,6 @@ test('General research corrects all identity roles even when OCR already read a 
  }}}).enrichGrapes
  const badRoles={...observed,producer:'Rivage',region:'Reserve',grapeVariety:'Cabernet Franc'}
  const result=await enrich(badRoles,'ko','test-key',false,badRoles)
- assert.equal(calls,2);assert.equal(result.producer,'Domaine Rivage');assert.equal(result.region,'Loire')
+ assert.equal(calls,1);assert.equal(result.producer,'Domaine Rivage');assert.equal(result.region,'Loire')
  assert.equal(result.grapeVariety,'Cabernet Franc');assert.equal(result.wineResearch.status,'verified')
 })
