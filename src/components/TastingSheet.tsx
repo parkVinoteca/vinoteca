@@ -247,6 +247,12 @@ export default function TastingSheet({ lang, user, onBack, blindSessionId, blind
     setGrapeResearch(null)
     setWineResearch(null)
     setGrapeEdited(false)
+    if (!isBlind) {
+      // A failed replacement scan must not leave the previous bottle's facts
+      // attached to the newly uploaded photograph.
+      setWineName(''); setProducer(''); setVintage(''); setRegion(''); setCountry(''); setGrapeVariety('')
+      setCriticScores([]); setResearchedIdentity('')
+    }
     setAnalyzing(true)
     setMessage('')
     try {
