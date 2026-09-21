@@ -21,7 +21,7 @@ export async function resolveWine(reading: WineReading, key?: string) {
       throw new Error('wine_lookup_not_cacheable')
     }
     return result
-  }, ['wine-identity-v1', normalizeWineText(reading.labelText), reading.vintage || 'unknown'], { revalidate: 60 * 60 * 24 * 7 })
+  }, ['wine-identity-v2', normalizeWineText(reading.labelText), reading.vintage || 'unknown'], { revalidate: 60 * 60 * 24 * 7 })
   try { return await cached() }
   catch {
     // An incomplete lookup is returned once, never frozen as shared wine data.

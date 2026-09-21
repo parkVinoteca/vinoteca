@@ -1,7 +1,7 @@
 import { ApiError, validateLabel } from '@/lib/server/ai'
 
 export type Label = ReturnType<typeof validateLabel>
-export type WineReading = Label & { labelText: string; knowledge?: Label }
+export type WineReading = Label & { labelText: string; knowledge?: Label; japanese?: import('./wineDisplay').JapaneseWine }
 export type WineResearch = {
   status: 'catalog' | 'verified' | 'unverified' | 'unavailable' | 'knowledge'
   source: string | null

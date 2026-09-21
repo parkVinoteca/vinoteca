@@ -1,4 +1,5 @@
 import { resolveWine } from '@/lib/server/wineLookup'
+import { displayJapaneseWine, japaneseDisplayInstruction } from '@/lib/server/wineDisplay'
 import { readWineAnalysis, wineAnalysisInstruction as instruction, wineAnalysisSchema as schema } from '@/lib/server/wineAnalysis'
 import { ApiError, authorize, readImage, reserveUsage, providerFetch, parseResult, failure } from '@/lib/server/ai'
 export const maxDuration = 180
@@ -6,9 +7,9 @@ export const maxDuration = 180
 async function gemini(image: Awaited<ReturnType<typeof readImage>>, key: string) {
   const data = await providerFetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent', {
     method: 'POST', headers: { 'Content-Type': 'application/json', 'x-goog-api-key': key },
-    body: JSON.stringify({ contents: [{ parts: [ { text: instruction }, { inlineData: { mimeType: image.imageMediaType, data: image.imageBase64 } } ] }],
+    body: JSON.stringify({ contents: [{ parts: [ { text: instruction + (image.lang === 'ja' ? japaneseDisplayInstruction : '') }, { inlineData: { mimeType: image.imageMediaType, data: image.imageBase64 } } ] }],
       generationConfig: { responseMimeType: 'application/json', maxOutputTokens: 1600, responseJsonSchema: schema } }),
-  }, 30000)
+  }, 15000)
   const candidate = data.candidates?.[0]
   if (candidate?.finishReason !== 'STOP') throw new ApiError('analysis_failed', 502)
   return readWineAnalysis(parseResult(candidate.content?.parts?.filter((p: { thought?: boolean }) => !p.thought).map((p: { text?: string }) => p.text || '').join('')))
@@ -19,7 +20,7 @@ async function haiku(image: Awaited<ReturnType<typeof readImage>>, key: string) 
   const data = await providerFetch('https://api.anthropic.com/v1/messages', {
     method: 'POST', headers: { 'Content-Type': 'application/json', 'x-api-key': key, 'anthropic-version': '2023-06-01' },
     body: JSON.stringify({ model: 'claude-haiku-4-5-20251001', max_tokens: 1600, temperature: 0,
-      messages: [{ role: 'user', content: [{ type: 'text', text: instruction + ' Return exactly one JSON object, without markdown.' },
+      messages: [{ role: 'user', content: [{ type: 'text', text: instruction + (image.lang === 'ja' ? japaneseDisplayInstruction : '') + ' Return exactly one JSON object, without markdown.' },
         { type: 'image', source: { type: 'base64', media_type: image.imageMediaType, data: image.imageBase64 } }] }] }),
   }, 30000)
   if (data.stop_reason !== 'end_turn') throw new ApiError('analysis_failed', 502)
@@ -47,7 +48,9 @@ export async function POST(req: Request) {
     }
     const enriched = await resolveWine(result, researchKey)
     // Raw transcription is only needed on the server; it is not a verified fact.
-    const publicResult = { ...enriched, labelText: undefined, knowledge: undefined }
+    const researchedJapanese = enriched.wineResearch?.status === 'verified' && 'japanese' in enriched ? enriched.japanese : undefined
+    const displayed = displayJapaneseWine(enriched, researchedJapanese ? enriched : result.knowledge || result, researchedJapanese || result.japanese || {}, image.lang)
+    const publicResult = { ...displayed, labelText: undefined, knowledge: undefined, japanese: undefined }
     return Response.json({ result: publicResult, provider }, { headers: { 'Cache-Control': 'no-store' } })
   } catch (error) { return failure(error) }
 }

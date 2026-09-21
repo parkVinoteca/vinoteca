@@ -126,7 +126,7 @@ export default function TastingSheet({ lang, user, onBack, blindSessionId, blind
   // Nose
   const [noseIntensity, setNoseIntensity] = useState('')
   const [noseDevelopment, setNoseDevelopment] = useState('')
-  const [noseCondition, setNoseCondition] = useState('')
+  const [customAroma, setCustomAroma] = useState('')
   const [aromas, setAromas] = useState<string[]>([])
 
   // Palate
@@ -173,7 +173,6 @@ export default function TastingSheet({ lang, user, onBack, blindSessionId, blind
       [setClarity,before.appearance.clarityLevels,t.appearance.clarityLevels],
       [setViscosity,before.appearance.viscosityLevels,t.appearance.viscosityLevels],
       [setNoseIntensity,before.nose.intensityLevels,t.nose.intensityLevels],
-      [setNoseCondition,before.nose.conditions,t.nose.conditions],
       [setNoseDevelopment,before.nose.developmentLevels,t.nose.developmentLevels],
       [setSweetness,before.palate.sweetnessLevels,t.palate.sweetnessLevels],
       [setAcidity,before.palate.acidityLevels,t.palate.acidityLevels],
@@ -319,8 +318,8 @@ export default function TastingSheet({ lang, user, onBack, blindSessionId, blind
         viscosity: viscosity || null,
         nose_intensity: noseIntensity || null,
         nose_development: noseDevelopment || null,
-        nose_condition: noseCondition || null,
-        aromas: aromas.length > 0 ? aromas : null,
+        nose_condition: null,
+        aromas: [...aromas, customAroma.trim()].filter(Boolean).length ? [...new Set([...aromas, customAroma.trim()].filter(Boolean))] : null,
         sweetness: sweetness || null,
         acidity: acidity || null,
         tannin: tannin || null,
@@ -480,8 +479,8 @@ export default function TastingSheet({ lang, user, onBack, blindSessionId, blind
             <div className="space-y-3">
               {[
                 { label: t.tasting.wineName, value: wineName, onChange: setWineName },
-                { label: t.tasting.producer, value: producer, onChange: setProducer },
                 { label: t.tasting.vintage, value: vintage, onChange: setVintage, type: 'number' },
+                { label: t.tasting.producer, value: producer, onChange: setProducer },
                 { label: t.tasting.region, value: region, onChange: setRegion },
                 { label: t.tasting.country, value: country, onChange: setCountry },
                 { label: t.tasting.grapeVariety, value: grapeVariety, onChange: (value: string) => { setGrapeVariety(value); setGrapeEdited(true) } },
@@ -552,6 +551,7 @@ export default function TastingSheet({ lang, user, onBack, blindSessionId, blind
           <DepthSelector simple />
           <SimpleRange unselected={t.tastingGuide.unselected} label={lang === 'ja' ? '香りの強さ' : '향의 강도'} display={lang === 'ja' ? ['とても控えめ','控えめ','ふつう','しっかり','とても強い'] : ['매우 은은함','은은함','보통','뚜렷함','매우 강함']} stored={t.nose.intensityLevels} value={noseIntensity} onChange={setNoseIntensity} />
           <div className="mb-5"><div className="text-sm font-medium text-ink mb-2">{lang === 'ja' ? 'どんな香り？' : '어떤 향인가요?'}</div><ChipGroup options={wineType ? t.simpleAromas[wineType as keyof typeof t.simpleAromas] || [] : []} selected={aromas} onToggle={toggleAroma} /><p className="text-xs text-cave-100 mt-2">{wineType ? t.tastingGuide.aromas : t.tastingGuide.selectType}</p>{aromas.filter(a => !(t.simpleAromas[wineType as keyof typeof t.simpleAromas] || []).includes(a)).map(a => <button key={a} className="chip chip-on mt-2" onClick={() => toggleAroma(a)}>{a} ×</button>)}</div>
+          <label className="block mb-4 text-sm text-ink">{t.aromaInput.label}<textarea className="input-field mt-2 w-full" rows={2} maxLength={500} value={customAroma} onChange={e => setCustomAroma(e.target.value)} placeholder={t.aromaInput.placeholder} /><span className="block mt-1 text-xs text-cave-100">{t.aromaInput.hint}</span></label>
           <SimpleRange unselected={t.tastingGuide.unselected} label={lang === 'ja' ? '甘さ' : '단맛'} display={t.tastingGuide.sweetness.filter((_,i)=>i!==2)} stored={t.palate.sweetnessLevels.filter((_,i)=>i!==2)} value={sweetness} onChange={setSweetness} />
           <SimpleRange unselected={t.tastingGuide.unselected} label={lang === 'ja' ? '酸味' : '산미'} display={lang === 'ja' ? ['弱い','やや弱い','中くらい','やや強い','強い'] : ['매우 약함','약함','보통','강함','매우 강함']} stored={t.palate.acidityLevels} value={acidity} onChange={setAcidity} />
           {wineType === 'red' && <SimpleRange unselected={t.tastingGuide.unselected} label={lang === 'ja' ? '渋み' : '떫은맛'} display={lang === 'ja' ? ['ほとんど無い','少ない','ふつう','しっかり','とても強い'] : ['거의 없음','적음','보통','뚜렷함','매우 강함']} stored={t.palate.tanninLevels} value={tannin} onChange={setTannin} />}
@@ -575,10 +575,6 @@ export default function TastingSheet({ lang, user, onBack, blindSessionId, blind
         <div>
           <div className="section-title">② {t.tasting.nose}</div>
           <ScaleRow label={t.tasting.noseIntensity} options={t.nose.intensityLevels} value={noseIntensity} onChange={setNoseIntensity} />
-          <div className="mb-4">
-            <div className="text-xs font-medium text-ink mb-1">{t.tasting.noseCondition}</div>
-            <ChipGroup options={t.nose.conditions} selected={noseCondition} onToggle={setNoseCondition} single />
-          </div>
           <ScaleRow label={t.tastingGuide.development} options={t.nose.developmentLevels} value={noseDevelopment} onChange={setNoseDevelopment} />
           <div className="mb-2">
             <div className="text-xs font-medium text-ink mb-1">
@@ -610,6 +606,7 @@ export default function TastingSheet({ lang, user, onBack, blindSessionId, blind
               ))}
             </div>
           </div>
+          <label className="block mb-4 text-sm text-ink">{t.aromaInput.label}<textarea className="input-field mt-2 w-full" rows={2} maxLength={500} value={customAroma} onChange={e => setCustomAroma(e.target.value)} placeholder={t.aromaInput.placeholder} /><span className="block mt-1 text-xs text-cave-100">{t.aromaInput.hint}</span></label>
         </div>
 
         {/* ③ Palate */}

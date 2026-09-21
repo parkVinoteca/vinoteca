@@ -29,6 +29,7 @@ export const ko = {
     "edited": "직접 수정한 품종입니다. 아래 검색 자료와 일치하는지 확인해주세요."
 },
 
+  aromaInput: { label: "향 직접 입력", placeholder: "예: 금목서, 구운 사과, 비 온 뒤 흙냄새", hint: "선택지에 없는 향도 기록하세요. 입력 모드를 바꿔도 내용이 유지됩니다." },
   app: { name: 'Vinoteca', tagline: '와인 테이스팅 기록' },
   nav: {
     home: '홈',

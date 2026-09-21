@@ -29,6 +29,7 @@ export const ja = {
     "edited": "手入力で修正した品種です。以下の検索資料と一致するかご確認ください。"
 },
 
+  aromaInput: { label: "香りを自由に入力", placeholder: "例：金木犀、焼きりんご、雨上がりの土", hint: "選択肢にない香りも記録できます。入力モードを切り替えても内容は引き継がれます。" },
   app: { name: 'Vinoteca', tagline: 'ワインテイスティング記録' },
   nav: {
     home: 'ホーム',
