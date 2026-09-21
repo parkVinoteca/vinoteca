@@ -1,0 +1,21 @@
+{
+  "date": "2026-09-21",
+  "environment": "production v1.3.2",
+  "wine": "Domaine de l'Enclos Chablis 2022",
+  "attempts": 1,
+  "serverExecutionSeconds": 51.28,
+  "responseFinishedSeconds": 52.1,
+  "gemini": {"model":"gemini-3.5-flash-lite","result":"provider_timeout","configuredTimeoutSeconds":30,"usageReturned":false,"tier":"free"},
+  "claude": [
+    {"stage":"OCR fallback","model":"claude-haiku-4-5-20251001","milliseconds":2944,"inputTokens":1374,"outputTokens":124,"searches":0,"estimatedUSD":0.001994},
+    {"stage":"research","model":"claude-haiku-4-5-20251001","milliseconds":14173,"inputTokens":41241,"outputTokens":719,"searches":1,"fetches":2,"estimatedUSD":0.054836},
+    {"stage":"structured extraction","model":"claude-haiku-4-5-20251001","milliseconds":2649,"inputTokens":1907,"outputTokens":285,"searches":0,"estimatedUSD":0.003332}
+  ],
+  "estimatedTotalUSD":0.060162,
+  "JPYAssumptionPerUSD":160,
+  "estimatedJPY":9.62592,
+  "pricingSource":"https://platform.claude.com/docs/en/about-claude/pricing",
+  "displayed":{"wineName":"Chablis","producer":"Romain et Damien Bouchard","vintage":"2022","region":"Chablis","country":"","grapes":"","source":"https://domainedelenclos.fr/"},
+  "validation":"grape_evidence_mismatch",
+  "limits":"Token-based estimate, not invoice; tax, FX fees and infrastructure excluded. No record saved. No repeat paid call. Gemini timeout usage unavailable."
+}
