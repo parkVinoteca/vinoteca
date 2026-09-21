@@ -37,3 +37,13 @@ test('Touch and keyboard geometry clamps every corner without inverting the crop
   assert.ok(out.x+out.width<=1.00001&&out.y+out.height<=1.00001)
  }
 })
+test('Bright printed objects beside the bottle do not become automatic crops',()=>{
+ const w=128,h=192,data=new Uint8ClampedArray(w*h*4)
+ for(let y=0;y<h;y++)for(let x=0;x<w;x++){
+  let c=35
+  if(x>=85&&x<=116&&y>=35&&y<=75)c=230
+  if(x>=90&&x<=110&&[44,45,58,59].includes(y))c=25
+  const i=(y*w+x)*4;data[i]=data[i+1]=data[i+2]=c;data[i+3]=255
+ }
+ assert.equal(suggestLabelCrop(data,w,h),null)
+})

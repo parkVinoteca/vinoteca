@@ -40,6 +40,10 @@ export function suggestLabelCrop(data: ArrayLike<number>, width: number, height:
         }
       }
       const w=right-left+1, h=bottom-top+1, area=w*h/size, ratio=w/h, fill=count/(w*h)
+      // A bright object beside a centred bottle is often glassware/background.
+      // This paper heuristic cannot identify dark labels; keep the whole image
+      // unless the candidate spans the central aiming area.
+      if (right < width*0.45 || left > width*0.55) continue
       if (left<2 || top<2 || right>width-3 || bottom>height-3 || area<0.025 || area>0.7 || w/width<0.12 || h/height<0.12 || ratio<0.35 || ratio>3 || fill<0.55) continue
       // A plain bright reflection is not a label: require darker print inside the rectangle.
       let ink=0, darkSurrounding=0, samples=0

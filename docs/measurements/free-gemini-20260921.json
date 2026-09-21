@@ -1,0 +1,11 @@
+{
+  "checkedAt": "2026-09-21T10:38:00.475Z",
+  "environment": "Preview, user-supplied personal-account free project",
+  "results": [
+    {"model":"gemini-3.5-flash-lite","search":false,"status":200,"elapsedMs":1289,"inputTokens":3,"outputTokens":2},
+    {"model":"gemini-3.5-flash-lite","search":true,"status":429,"apiStatus":"RESOURCE_EXHAUSTED","elapsedMs":112},
+    {"model":"gemini-2.5-flash-lite","search":false,"status":404,"apiStatus":"NOT_FOUND","elapsedMs":101},
+    {"model":"gemini-2.5-flash-lite","search":true,"status":404,"apiStatus":"NOT_FOUND","elapsedMs":125}
+  ],
+  "limitations": "Basic test was text-only. No customer photos submitted. A successful basic call is not proof of image accuracy or free search access. No Production key change."
+}

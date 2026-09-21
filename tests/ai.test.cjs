@@ -74,7 +74,7 @@ test('Sommelier parses the final response after a separate search narration bloc
 })
 test('Label scan uses a bounded extraction model and validates the structured response',async()=>{
  let captured
- const mocked={...ai,authorize:async()=>({}),reserveUsage:async()=>{},providerFetch:async(url,init)=>{captured={url,body:JSON.parse(init.body)};return{candidates:[{finishReason:'STOP',content:{parts:[{text:JSON.stringify({wineName:'Chateau Margaux',producer:'Chateau Margaux',vintage:'2015',wineType:'red'})}]}}]}}}
+ const mocked={...ai,authorize:async()=>({}),reserveUsage:async()=>{},providerFetch:async(url,init)=>{captured={url,body:JSON.parse(init.body)};return{candidates:[{finishReason:'STOP',content:{parts:[{text:JSON.stringify({labelText:'Chateau Margaux 2015',wineName:'Chateau Margaux',producer:'Chateau Margaux',vintage:'2015',wineType:'red'})}]}}]}}}
  const handler=load('src/app/api/label/route.ts',{process:{env:{GEMINI_API_KEY:'offline-test'}}},{'@/lib/server/ai':mocked})
  const response=await handler.POST(request(image))
  assert.equal(response.status,200);assert.equal((await response.json()).result.vintage,'2015')
@@ -126,9 +126,9 @@ test('Gemini outage uses Haiku once and a warm server skips the exhausted provid
   const mock={...ai,authorize:async()=>({}),reserveUsage:async()=>{reservations++},providerFetch:async(url,init)=>{
    const body=JSON.parse(init.body);calls.push({url,body})
    if(url.includes('googleapis'))throw new ai.ApiError(code,502)
-   return {stop_reason:'end_turn',content:[{type:'text',text:JSON.stringify({wineName:'Test',grapeVariety:'Merlot'})}]}
+   return {stop_reason:'end_turn',content:[{type:'text',text:JSON.stringify({labelText:'Test Merlot',wineName:'Test',grapeVariety:'Merlot'})}]}
   }}
-  const handler=load('src/app/api/label/route.ts',{process:{env:{GEMINI_API_KEY:'offline',ANTHROPIC_API_KEY:'offline'}}},{'@/lib/server/ai':mock})
+  const handler=load('src/app/api/label/route.ts',{process:{env:{GEMINI_API_KEY:'offline',ANTHROPIC_API_KEY:'offline'}}},{'@/lib/server/ai':mock,'@/lib/server/wineLookup':{resolveWine:async r=>r}})
   for(let i=0;i<2;i++){const r=await handler.POST(request(image));assert.equal(r.status,200);assert.equal((await r.json()).provider,'claude')}
   assert.equal(calls.length,3);assert.equal(reservations,2)
   for(const c of calls.slice(1)){assert.equal(c.body.model,'claude-haiku-4-5-20251001');assert.equal(c.body.tools,undefined);assert.equal(c.body.max_tokens,1024)}
@@ -137,8 +137,8 @@ test('Gemini outage uses Haiku once and a warm server skips the exhausted provid
 test('Missing Gemini key can still use Haiku and double outages fail without looping',async()=>{
  for(const failed of [false,true]){
   let calls=0
-  const mock={...ai,authorize:async()=>({}),reserveUsage:async()=>{},providerFetch:async()=>{calls++;if(failed)throw new ai.ApiError('provider_busy',502);return {stop_reason:'end_turn',content:[{type:'text',text:JSON.stringify({wineName:'Test',grapeVariety:'Merlot'})}]}}}
-  const handler=load('src/app/api/label/route.ts',{process:{env:{ANTHROPIC_API_KEY:'offline'}}},{'@/lib/server/ai':mock})
+  const mock={...ai,authorize:async()=>({}),reserveUsage:async()=>{},providerFetch:async()=>{calls++;if(failed)throw new ai.ApiError('provider_busy',502);return {stop_reason:'end_turn',content:[{type:'text',text:JSON.stringify({labelText:'Test Merlot',wineName:'Test',grapeVariety:'Merlot'})}]}}}
+  const handler=load('src/app/api/label/route.ts',{process:{env:{ANTHROPIC_API_KEY:'offline'}}},{'@/lib/server/ai':mock,'@/lib/server/wineLookup':{resolveWine:async r=>r}})
   assert.equal((await handler.POST(request(image))).status,failed?502:200);assert.equal(calls,1)
  }
 })

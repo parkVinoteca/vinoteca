@@ -4,6 +4,7 @@ import { supabase } from '@/lib/supabase'
 import { analyzeImage } from '@/lib/aiClient'
 import AnalysisProgress, { type AnalysisStage } from './AnalysisProgress'
 import type { GrapeResearch } from '@/lib/server/grapes'
+import type { WineResearch } from '@/lib/server/wineIdentity'
 import SimpleRange from './SimpleRange'
 import PersonalRating from './PersonalRating'
 import CriticScores from './CriticScores'
@@ -91,6 +92,7 @@ export default function TastingSheet({ lang, user, onBack, blindSessionId, blind
   const [analysisStage, setAnalysisStage] = useState<AnalysisStage>('upload')
   const analysisRequest = useRef<AbortController | null>(null)
   const [grapeResearch, setGrapeResearch] = useState<GrapeResearch | null>(null)
+  const [wineResearch, setWineResearch] = useState<WineResearch | null>(null)
   const [grapeEdited, setGrapeEdited] = useState(false)
   useEffect(() => () => analysisRequest.current?.abort(), [])
   const cancelAnalysis = () => { analysisRequest.current?.abort(); setAnalyzing(false); setMessage(t.analysis.cancelled) }
@@ -110,7 +112,9 @@ export default function TastingSheet({ lang, user, onBack, blindSessionId, blind
   const [wineType, setWineType] = useState('')
   const [criticScores, setCriticScores] = useState<CriticScore[]>([])
   const [researchedIdentity, setResearchedIdentity] = useState('')
+  const [researchedFacts, setResearchedFacts] = useState('')
   const identity = JSON.stringify([wineName, producer, vintage])
+  const factsUnchanged = JSON.stringify([wineName, producer, vintage, region, country, grapeVariety, wineType]) === researchedFacts
   const verifiedScores = identity === researchedIdentity ? criticScores : []
 
   // Appearance
@@ -243,7 +247,14 @@ export default function TastingSheet({ lang, user, onBack, blindSessionId, blind
     setCriticScores([])
     setResearchedIdentity('')
     setGrapeResearch(null)
+    setWineResearch(null)
     setGrapeEdited(false)
+    if (!isBlind) {
+      // A failed replacement scan must not leave the previous bottle's facts
+      // attached to the newly uploaded photograph.
+      setWineName(''); setProducer(''); setVintage(''); setRegion(''); setCountry(''); setGrapeVariety('')
+      setWineType(''); setCriticScores([]); setResearchedIdentity(''); setResearchedFacts('')
+    }
     setAnalyzing(true)
     setMessage('')
     try {
@@ -261,6 +272,7 @@ export default function TastingSheet({ lang, user, onBack, blindSessionId, blind
         if (controller.signal.aborted) return
         setAnalysisStage('organize')
         setGrapeResearch(info.grapeResearch || null)
+        setWineResearch(info.wineResearch || null)
         setWineName(info.wineName || '')
         setProducer(info.producer || '')
         setVintage(info.vintage && /^\d{4}$/.test(info.vintage) ? info.vintage : '')
@@ -270,6 +282,7 @@ export default function TastingSheet({ lang, user, onBack, blindSessionId, blind
         selectWineType(info.wineType || '', false)
         setCriticScores(readableCriticScores(info.criticScores))
         setResearchedIdentity(JSON.stringify([info.wineName || '', info.producer || '', info.vintage && /^\d{4}$/.test(info.vintage) ? info.vintage : '']))
+        setResearchedFacts(JSON.stringify([info.wineName || '', info.producer || '', info.vintage && /^\d{4}$/.test(info.vintage) ? info.vintage : '', info.region || '', info.country || '', info.grapeVariety || '', info.wineType || '']))
       }
     } catch (error) {
       if (!controller.signal.aborted) setMessage(error instanceof Error ? error.message : t.common.error)
@@ -460,6 +473,10 @@ export default function TastingSheet({ lang, user, onBack, blindSessionId, blind
         {!isBlind && (
           <div>
             <div className="section-title">{lang === 'ja' ? 'ワイン情報' : '와인 정보'}</div>
+            {wineResearch && <div role="status" className="mb-4 border border-gold-900/20 bg-cave-600/20 p-3 text-xs leading-6 text-cave-100">
+              <p>{!factsUnchanged ? t.analysis.identityEdited : wineResearch.status === 'catalog' ? t.analysis.identityCatalog : wineResearch.status === 'verified' ? t.analysis.identityVerified : t.analysis.identityUnverified}</p>
+              {factsUnchanged && wineResearch.source && <a href={wineResearch.source} target="_blank" rel="noopener noreferrer" className="text-gold-700 underline">{t.analysis.identitySource} ↗</a>}
+            </div>}
             <div className="space-y-3">
               {[
                 { label: t.tasting.wineName, value: wineName, onChange: setWineName },
@@ -481,11 +498,11 @@ export default function TastingSheet({ lang, user, onBack, blindSessionId, blind
                     className="input-field"
                   />
                   {field.label === t.tasting.grapeVariety && grapeResearch && <div id="grape-research-note" className="mt-2 space-y-1 text-xs leading-6 text-cave-100">
-                    {grapeEdited && <p>{t.analysis.edited}</p>}
+                    {(grapeEdited || identity !== researchedIdentity) && <p>{t.analysis.edited}</p>}
                     {grapeResearch.status === 'not_found' && <p>{t.analysis.notFound}</p>}
                     {grapeResearch.status === 'unavailable' && <p>{t.analysis.unavailable}</p>}
                     {grapeResearch.status === 'label' && <p>{t.analysis.labelOnly}</p>}
-                    {grapeResearch.status === 'verified' && <>
+                    {grapeResearch.status === 'verified' && !grapeEdited && identity === researchedIdentity && <>
                       {!grapeResearch.vintageMatched && <p>{t.analysis.vintageUnknown}</p>}
                       <p>{grapeResearch.blendRatio ? `${t.analysis.blend}: ${grapeResearch.blendRatio}` : t.analysis.ratioMissing}</p>
                       {grapeResearch.source && <a href={grapeResearch.source} target="_blank" rel="noopener noreferrer" className="text-gold-700 underline">{t.analysis.source} ↗</a>}
