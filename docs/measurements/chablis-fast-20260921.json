@@ -1,0 +1,17 @@
+{
+  "date": "2026-09-21",
+  "environment": "Preview v1.3.3",
+  "commit": "acbeedae91911d82b6e35d2860f6638000cccab3",
+  "deployment": "dpl_AXBMHRzEd6VGiKhcdPNcNeEAjBk8",
+  "wine": "Domaine de l'Enclos Chablis 2022",
+  "image": "Same user-provided photograph, full image selected both times, standard app 1024px compression",
+  "model": "gemini-3.5-flash-lite",
+  "tier": "free",
+  "runs": [
+    {"request":"wc9jh-1789991411938-772323975757","milliseconds":1642,"inputTokens":1312,"outputTokens":186,"executionSeconds":3.61,"responseFinishedSeconds":4.1,"claudeCalls":0,"estimatedAPIJPY":0},
+    {"request":"hsf5l-1789991487985-a1aaa6a07ce8","milliseconds":2549,"inputTokens":1312,"outputTokens":186,"executionSeconds":3.93,"responseFinishedSeconds":4.9,"claudeCalls":0,"estimatedAPIJPY":0}
+  ],
+  "displayedBothRuns":{"wineName":"Chablis","producer":"Domaine de l'Enclos","vintage":"2022","region":"Bourgogne","country":"France","grapeVariety":"Chardonnay"},
+  "researchStatus":"knowledge; explicitly not web-verified",
+  "limitations":"Two runs of one wine, not a general accuracy/latency benchmark. No tasting record saved. Free-tier price, not invoice. Server timing excludes image upload. Previous provider timeout root cause unknown. No hardcoded Chablis facts added."
+}

@@ -80,7 +80,7 @@ test('Label scan uses a bounded extraction model and validates the structured re
  assert.equal(response.status,200);assert.equal((await response.json()).result.vintage,'2015')
  assert.ok(captured.url.includes('gemini-3.5-flash-lite'))
  assert.equal(captured.body.generationConfig.responseJsonSchema.additionalProperties,false)
- assert.equal(captured.body.generationConfig.maxOutputTokens,1024)
+ assert.equal(captured.body.generationConfig.maxOutputTokens,1600)
 })
 
 test('Citation-segmented text is reassembled without inserting newlines inside JSON strings',async()=>{
@@ -131,7 +131,7 @@ test('Gemini outage uses Haiku once and a warm server skips the exhausted provid
   const handler=load('src/app/api/label/route.ts',{process:{env:{GEMINI_API_KEY:'offline',ANTHROPIC_API_KEY:'offline'}}},{'@/lib/server/ai':mock,'@/lib/server/wineLookup':{resolveWine:async r=>r}})
   for(let i=0;i<2;i++){const r=await handler.POST(request(image));assert.equal(r.status,200);assert.equal((await r.json()).provider,'claude')}
   assert.equal(calls.length,3);assert.equal(reservations,2)
-  for(const c of calls.slice(1)){assert.equal(c.body.model,'claude-haiku-4-5-20251001');assert.equal(c.body.tools,undefined);assert.equal(c.body.max_tokens,1024)}
+  for(const c of calls.slice(1)){assert.equal(c.body.model,'claude-haiku-4-5-20251001');assert.equal(c.body.tools,undefined);assert.equal(c.body.max_tokens,1600)}
  }
 })
 test('Missing Gemini key can still use Haiku and double outages fail without looping',async()=>{

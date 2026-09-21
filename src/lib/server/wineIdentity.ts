@@ -1,9 +1,9 @@
 import { ApiError, validateLabel } from '@/lib/server/ai'
 
 export type Label = ReturnType<typeof validateLabel>
-export type WineReading = Label & { labelText: string }
+export type WineReading = Label & { labelText: string; knowledge?: Label }
 export type WineResearch = {
-  status: 'catalog' | 'verified' | 'unverified' | 'unavailable'
+  status: 'catalog' | 'verified' | 'unverified' | 'unavailable' | 'knowledge'
   source: string | null
   catalogId: string | null
 }
@@ -68,7 +68,9 @@ export function verifyWineIdentity(raw: Record<string, unknown>, document: strin
     if (new RegExp(`\\b${variant}\\b`).test(observed) && !new RegExp(`\\b${variant}\\b`).test(evidence)) return null
   }
   for (const field of ['region', 'country'] as const) {
-    if (label[field] && (!evidence.includes(normalizeWineText(label[field]!)) || quality.test(label[field]!))) label[field] = null
+    const quote=raw[`${field}Evidence`]
+    const fieldEvidence=typeof quote==='string' && quote.length<=400 && normalizeWineText(document).includes(normalizeWineText(quote)) ? normalizeWineText(quote) : evidence
+    if (label[field] && (!fieldEvidence.includes(normalizeWineText(label[field]!)) || quality.test(label[field]!))) label[field] = null
   }
   label.grapeVariety = null // Varieties are verified separately against the varietal section.
   return label
