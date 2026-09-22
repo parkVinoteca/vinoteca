@@ -39,6 +39,7 @@ export function findReviewedWine(reading: WineReading) {
     wineName: 'Proyecto Cu4tro Cava Premium Reserva', producer: 'Clos Montblanc',
     vintage: reading.vintage, country: 'Spain', region: 'Catalunya', wineType: 'sparkling',
     grapeVariety: 'Macabeo, Xarel·lo, Parellada, Chardonnay', criticScores: [],
+    reviewedJapanese: {wineName:'プロジェクト・クワトロ・カヴァ・プレミアム・レゼルヴァ',producer:'クロ・モンブラン',country:'スペイン',region:'カタルーニャ',grapeVariety:'マカベオ、チャレッロ、パレリャーダ、シャルドネ'},
     grapeResearch: { status: 'verified' as const, source, vintageMatched: false, blendRatio: null },
     wineResearch: { status: 'catalog' as const, source, catalogId: 'clos-montblanc/proyecto-cu4tro-cava-premium-reserva' },
   }

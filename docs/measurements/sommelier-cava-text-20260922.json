@@ -1,0 +1,22 @@
+{
+  "date": "2026-09-22",
+  "commit": "fb3872b",
+  "environment": "Preview",
+  "input": {"wineName":"Proyecto Cu4tro Cava Premium Reserva","producer":"Clos Mont-Blanc","vintage":"2021","language":"ja","image":false},
+  "model": "gemini-3.5-flash-lite",
+  "providerMilliseconds": 2996,
+  "browserReceiveHeadersMilliseconds": 5622.584,
+  "inputTokens": 1371,
+  "outputTokens": 729,
+  "httpStatus": 200,
+  "anthropicCalls": 0,
+  "searchToolConfigured": false,
+  "chargedEstimateJPYWithinFreeTier": 0,
+  "paidTokenEquivalentUSD": 0.0022338,
+  "paidTokenEquivalentJPYAt160": 0.357408,
+  "actualHistoryReferenceCount": 1,
+  "temperature": "6–10℃",
+  "result": "Detailed visual, primary/aging aromas, body, acidity, sweetness, qualitative finish and carpaccio pairing shown. Existing reviewed four-grape catalogue used; price/alcohol/ratios remain unconfirmed.",
+  "issuesFound": ["Canonical reviewed names did not inherit model translations; added reviewed Japanese names from the existing Enoteca source without weakening identity translation checks"],
+  "notes": "Unit-price estimate, not invoice. No private history is saved here. Final Japanese catalogue display was adjusted after this measured call."
+}

@@ -1,5 +1,8 @@
 export const ja = {
   analysis: {
+    textTitle: "AIがワイン情報を解析しています",
+    textPrepared: "入力内容を確認しました",
+    sommelierSubtitle: "AIがワインの特徴を確認しています。銘柄によって少し時間がかかる場合があります。",
     delayed: "正確な解析のため、もう少し時間がかかっています。完了までお待ちください。",
     brand: "ラベルのブランド表記",
     background: "AIの知識による商品紹介・ウェブ未検証",
@@ -17,7 +20,7 @@ export const ja = {
     "analyze": "銘柄の特定・情報を確認中",
     "organize": "結果を整理しています",
     "labelDetail": "Geminiがラベルとワイン知識から基本情報を整理しています。確認できない項目は推測せずお知らせします。",
-    "sommelierDetail": "品種・ブレンド比率・参考価格を調べています。",
+    "sommelierDetail": "Geminiがワインの特徴を整理し、これまでの評価と照らしてアドバイスを準備しています。",
     "uploadTitle": "写真を保存しています",
     "cancel": "キャンセル",
     "cancelled": "解析の表示をキャンセルしました。開始済みのサーバー処理は続く場合があり、利用回数に含まれます。",

@@ -21,9 +21,9 @@ export async function authorize(req: Request) {
   })
   const { data, error } = await client.auth.getUser(token)
   if (error || !data.user || data.user.is_anonymous) throw new ApiError('sign_in_required', 401)
-  return client
+  return Object.assign(client, { verifiedUserId: data.user.id })
 }
-export async function readImage(req: Request) {
+export async function readJsonBody(req: Request) {
   if (!req.headers.get('content-type')?.includes('application/json')) throw new ApiError('invalid_image', 400)
   // Bound the stream itself: Content-Length is not trustworthy.
   const reader = req.body?.getReader()
@@ -42,6 +42,9 @@ export async function readImage(req: Request) {
   let body
   try { body = JSON.parse(Buffer.concat(chunks).toString('utf8')) } catch { throw new ApiError('invalid_image', 400) }
   if (!body || typeof body !== 'object') throw new ApiError('invalid_image', 400)
+  return body as Record<string, unknown>
+}
+export function validateImage(body: Record<string, unknown>) {
   const { imageBase64, imageMediaType, lang } = body
   if (typeof imageBase64 !== 'string' || !imageBase64.length || imageBase64.length % 4 !== 0 || !/^[A-Za-z0-9+/]+={0,2}$/.test(imageBase64)) throw new ApiError('invalid_image', 400)
   const bytes = Buffer.from(imageBase64, 'base64')
@@ -51,6 +54,9 @@ export async function readImage(req: Request) {
   if (lang !== 'ja' && lang !== 'ko') throw new ApiError('invalid_request', 400)
   return { imageBase64, imageMediaType, lang: lang as 'ja' | 'ko' }
 }
+export async function readImage(req: Request) {
+  return validateImage(await readJsonBody(req))
+}
 export async function reserveUsage(client: Awaited<ReturnType<typeof authorize>>, feature: 'sommelier' | 'label_scan') {
   // Atomic DB reservation, BEFORE any billable call. No service-role key or client-side counters.
   const { data, error } = await client.rpc('reserve_ai_usage', { p_feature: feature })
@@ -59,6 +65,9 @@ export async function reserveUsage(client: Awaited<ReturnType<typeof authorize>>
 }
 export async function providerFetch(url: string, init: RequestInit, timeoutMs = 40000) {
   const provider = url.includes('googleapis.com') ? 'gemini' : 'claude'
+  // Operational endpoints cannot invoke Anthropic. Comparison scripts must use
+  // their own explicitly reviewed harness, never an application switch.
+  if (url.includes('api.anthropic.com')) throw new ApiError('provider_disabled', 503)
   const started = Date.now()
   let headersMs: number | null = null
   let phase = 'waiting_headers'
