@@ -7,7 +7,7 @@ export const maxDuration = 180
 async function gemini(image: Awaited<ReturnType<typeof readImage>>, key: string) {
   const data = await providerFetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent', {
     method: 'POST', headers: { 'Content-Type': 'application/json', 'x-goog-api-key': key },
-    body: JSON.stringify({ contents: [{ parts: [ { text: instruction + (image.lang === 'ja' ? japaneseDisplayInstruction : '') }, { inlineData: { mimeType: image.imageMediaType, data: image.imageBase64 } } ] }],
+    body: JSON.stringify({ contents: [{ parts: [ { text: instruction + ` Respond to background in ${image.lang === 'ja' ? 'Japanese' : 'Korean'}. ` + (image.lang === 'ja' ? japaneseDisplayInstruction : '') }, { inlineData: { mimeType: image.imageMediaType, data: image.imageBase64 } } ] }],
       generationConfig: { responseMimeType: 'application/json', maxOutputTokens: 1600, thinkingConfig: { thinkingLevel: 'minimal' }, responseJsonSchema: schema } }),
   }, 60000)
   const candidate = data.candidates?.[0]

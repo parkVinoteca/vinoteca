@@ -1,5 +1,5 @@
 'use client'
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { translations, type Language } from '@/i18n'
 export type AnalysisStage = 'upload' | 'analyze' | 'organize'
 
@@ -16,6 +16,13 @@ export default function AnalysisProgress({ imageUrl, lang, stage, mode, onCancel
     dialog.current?.focus()
     return () => { document.body.style.overflow = overflow; previous?.focus() }
   }, [])
+  const [delayed, setDelayed] = useState(false)
+  useEffect(() => {
+    setDelayed(false)
+    if (stage !== 'analyze' || mode === 'upload') return
+    const timer = setTimeout(() => setDelayed(true), 9000)
+    return () => clearTimeout(timer)
+  }, [stage, mode])
   const current = stage === 'upload' ? 0 : stage === 'analyze' ? 1 : 2
   const steps = mode === 'upload' ? [t.uploadTitle] : [t.upload, t.analyze, t.organize]
   return <div ref={dialog} role="dialog" aria-modal="true" aria-labelledby="analysis-title" tabIndex={-1}
@@ -31,7 +38,7 @@ export default function AnalysisProgress({ imageUrl, lang, stage, mode, onCancel
       </div>
       <div className="text-center space-y-2" role="status" aria-live="polite">
         <h2 id="analysis-title" className="text-xl text-[#f5ebd6] font-medium">{mode === 'upload' ? t.uploadTitle : t.title}</h2>
-        <p className="text-xs leading-6 text-[#b7bdcb]">{t.subtitle}</p>
+        <p className="text-xs leading-6 text-[#b7bdcb]">{delayed ? t.delayed : t.subtitle}</p>
         <p className="sr-only">{steps[mode === 'upload' ? 0 : current]}</p>
       </div>
       <ol className="w-full space-y-2.5" aria-label={t.title}>

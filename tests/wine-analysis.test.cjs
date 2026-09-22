@@ -47,3 +47,28 @@ test('One unknown field does not discard independently known information or star
  assert.equal(knowledgeResult(ratios).grapeVariety,null)
  assert.equal(knowledgeResult(ratios).country,'France')
 })
+
+test('Unknown private labels preserve printed name and brand without guessed country or winery',async()=>{
+ const raw={labelText:'Tortue & Grue T&G TAKE and GIVE NEEDS',vintage:null,brand:'T&G TAKE and GIVE NEEDS',background:'T&G関連のワインです。',observed:{wineName:'Tortue & Grue',producer:null,country:null,region:null,grapeVariety:null,wineType:null},knowledge:{confident:false,wineName:null,producer:null,country:'France',grapeVariety:'Chardonnay'}}
+ const reading=readWineAnalysis(raw)
+ const result=await load('src/lib/server/wineLookup.ts').resolveWine(reading)
+ assert.equal(result.wineName,'Tortue & Grue')
+ assert.equal(result.producer,null)
+ assert.equal(result.country,null)
+ assert.equal(result.grapeVariety,null)
+ assert.equal(result.wineResearch.brand,raw.brand)
+ assert.equal(result.wineResearch.status,'unverified')
+})
+test('Bordeaux classification is not required in product name, but Grand Cru cuvee still is',()=>{
+ const raw=sample('Chateau Example','Pauillac','France','Bordeaux','Cabernet Sauvignon')
+ assert.ok(readWineAnalysis({...raw,labelText:raw.labelText+' Grand Cru Classé'}).knowledge)
+ assert.equal(readWineAnalysis({...raw,labelText:raw.labelText+' Grand Cru'}).knowledge,undefined)
+})
+test('Recognized product can retain knowledge without pretending brand is its winery',()=>{
+ const raw=sample('Brand Example','Special Cuvee','France',null,null)
+ raw.knowledge.producer=null
+ raw.observed={wineName:'Special Cuvee',producer:null,country:null,region:null,grapeVariety:null,wineType:null}
+ const result=knowledgeResult(readWineAnalysis(raw))
+ assert.equal(result.producer,null)
+ assert.equal(result.country,'France')
+})

@@ -474,6 +474,8 @@ export default function TastingSheet({ lang, user, onBack, blindSessionId, blind
             <div className="section-title">{lang === 'ja' ? 'ワイン情報' : '와인 정보'}</div>
             {wineResearch && <div role="status" className="mb-4 border border-gold-900/20 bg-cave-600/20 p-3 text-xs leading-6 text-cave-100">
               <p>{!factsUnchanged ? t.analysis.identityEdited : wineResearch.status === 'catalog' ? t.analysis.identityCatalog : wineResearch.status === 'knowledge' ? t.analysis.identityKnowledge : wineResearch.status === 'verified' ? t.analysis.identityVerified : t.analysis.identityUnverified}</p>
+              {factsUnchanged && wineResearch.brand && <p>{t.analysis.brand}: {wineResearch.brand}</p>}
+              {factsUnchanged && wineResearch.background && <p>{t.analysis.background}: {wineResearch.background}</p>}
               {factsUnchanged && wineResearch.source && <a href={wineResearch.source} target="_blank" rel="noopener noreferrer" className="text-gold-700 underline">{t.analysis.identitySource} ↗</a>}
             </div>}
             <div className="space-y-3">

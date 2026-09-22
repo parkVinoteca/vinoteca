@@ -11,7 +11,7 @@ export async function resolveWine(reading: WineReading) {
   // Even when identity is ambiguous, preserve genuinely printed country/grapes.
   // Do not turn a product-matching uncertainty into loss of all observed facts.
   return { ...reading, criticScores: [],
-    wineResearch: { status: 'unverified' as const, source: null, catalogId: null },
+    wineResearch: { status: 'unverified' as const, source: null, catalogId: null, brand: reading.brand, background: reading.background },
     grapeResearch: { status: reading.grapeVariety ? 'label' as const : 'not_found' as const,
       source: null, vintageMatched: false, blendRatio: null },
   }
