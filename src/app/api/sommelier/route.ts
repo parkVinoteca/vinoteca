@@ -45,6 +45,7 @@ export async function POST(req: Request) {
     const wine=await resolveWine(reading)
     const details=readSommelierDetails(raw,history,!!reading.knowledge && reading.knowledge.wineType===wine.wineType)
     const alcoholPercent=input.image && typeof raw.labelAlcohol==='string' && /^\d{1,2}(?:[.,]\d)?\s*[%％]$/.test(raw.labelAlcohol) && reading.labelText.includes(raw.labelAlcohol) ? raw.labelAlcohol : null
+    if(!reading.knowledge && !details.clarification) details.clarification=input.lang==='ja' ? '銘柄を特定するため、生産者や裏ラベルの情報を補足してください。' : '와인을 특정할 수 있도록 생산자나 뒷라벨 정보를 보완해주세요.'
     const sameType=records.filter(r=>r.wine_type && r.wine_type===wine.wineType)
     const profile=calculateTasteProfile(sameType)
     const levels=details as typeof details & Record<'bodyLevel'|'tanninLevel'|'acidityLevel'|'alcoholLevel',number|null>

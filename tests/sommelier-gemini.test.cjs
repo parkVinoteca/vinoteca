@@ -63,3 +63,14 @@ test('Manual identities may know an unprinted winery, but must still match the a
  assert.equal(rejected.profile.nose,null);assert.equal(rejected.sommelierComment,null)
  const generic=route();assert.equal((await generic.POST(request({lang:'ja',wineName:'Chablis',vintage:'2022'}))).status,400);assert.equal(generic.calls.length,0)
 })
+
+test('Internal reference IDs stay out of the conversational prose',()=>{
+ const result=analysis.readSommelierDetails({...raw,comment:'Champagne A（r1）の評価が参考になります。'},analysis.historyContext(records),true)
+ assert.equal(result.sommelierComment,'Champagne Aの評価が参考になります。')
+})
+test('One comparable record is described as insufficient, not as uniform ratings',()=>{
+ const taste=load('src/lib/tastePofile.ts')
+ const profile=taste.calculateTasteProfile([records[0]])
+ const result=taste.calculateMatchScore(profile,{body:3,tannin:1,acidity:5,alcohol:3})
+ assert.equal(result.reason,'insufficient')
+})

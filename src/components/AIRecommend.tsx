@@ -86,7 +86,7 @@ export default function AIRecommend({ lang, user, onBack }: Props) {
   }
 
   const matchColor = (score: number) =>
-    score >= 80 ? 'text-green-400' : score >= 60 ? 'text-yellow-400' : 'text-red-400'
+    score >= 80 ? 'text-green-700' : score >= 60 ? 'text-yellow-700' : 'text-red-700'
   const matchBg = (score: number) =>
     score >= 80 ? 'bg-green-500' : score >= 60 ? 'bg-yellow-500' : 'bg-red-400'
   const countryFlag = (country: string | null | undefined) => {
@@ -101,7 +101,7 @@ export default function AIRecommend({ lang, user, onBack }: Props) {
   return (
     <div className="max-w-lg mx-auto p-4">
       <div className="section-title">{st.title}</div>
-      <div className="text-sm text-gold-200 mb-1">{st.subtitle}</div>
+      <div className="text-sm text-gold-800 mb-1">{st.subtitle}</div>
       <div className="text-xs text-cave-200 mb-4">💡 {st.knowledge}</div>
 
       {!unlocked && <div className="card p-4 mb-4 text-sm leading-7 text-ink"><p>{recordCount===null ? st.checking : st.gate}</p>{recordCount!==null && <p>{st.progress}: {recordCount}/{TASTE_PROFILE_MIN_RECORDS}</p>}</div>}
@@ -160,12 +160,13 @@ export default function AIRecommend({ lang, user, onBack }: Props) {
           {imageUrl && <img src={imageUrl} alt="" className="w-full max-h-48 object-contain bg-cave-700/30 rounded" />}
 
           <div className="card p-4">
-            <div className="font-serif italic text-xl text-gold-200">{result.wineName}</div>
+            <div className="font-serif italic text-xl text-gold-800">{result.wineName}</div>
             <dl className="mt-3 divide-y divide-cave-400/50 text-sm">
               {[[lang === 'ja' ? 'ヴィンテージ' : '빈티지', result.vintage], [lang === 'ja' ? '生産者' : '생산자', result.producer], [lang === 'ja' ? 'タイプ' : '유형', t.wineType[result.wineType as keyof typeof t.wineType] || result.wineType], [lang === 'ja' ? '生産地' : '생산지', [countryFlag(result.country), result.country, result.region].filter(Boolean).join(' ')], [lang === 'ja' ? '品種' : '품종', result.grapeVariety || st.unconfirmed], [st.abv, result.alcoholPercent || st.unconfirmed], [st.price, result.priceJPY || st.unconfirmed]].filter(([, value]) => value).map(([label, value]) => (
                 <div key={String(label)} className="grid grid-cols-[88px_1fr] gap-3 py-2"><dt className="text-cave-100">{label}</dt><dd className="font-medium text-ink">{value}</dd></div>
               ))}
             </dl>
+            {result.wineResearch?.background && <p className="mt-3 text-sm leading-7 text-ink">{result.wineResearch.background}</p>}
             {result.clarification && <p className="mt-3 text-sm leading-6 text-gold-700">{result.clarification}</p>}
           </div>
 
@@ -192,7 +193,7 @@ export default function AIRecommend({ lang, user, onBack }: Props) {
               </div>
               {result.priceJPY && (
                 <div className="mb-1">
-                  <span className="text-lg font-serif text-gold-200">{result.priceJPY}</span>
+                  <span className="text-lg font-serif text-gold-800">{result.priceJPY}</span>
                   {result.priceJPYSource && <span className="text-xs text-cave-200 ml-2">({result.priceJPYSource})</span>}
                 </div>
               )}

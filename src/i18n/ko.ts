@@ -1,5 +1,8 @@
 export const ko = {
   analysis: {
+    textTitle: "AI가 와인 정보를 분석 중입니다",
+    textPrepared: "입력 내용을 확인했습니다",
+    sommelierSubtitle: "AI가 와인 특징을 확인하고 있습니다. 와인에 따라 시간이 조금 더 걸릴 수 있습니다.",
     delayed: "정확한 분석을 위해 시간이 조금 더 걸리고 있습니다. 완료될 때까지 기다려주세요.",
     brand: "라벨의 브랜드 표기",
     background: "AI 지식 기반 제품 소개 · 웹 검증 없음",
@@ -17,7 +20,7 @@ export const ko = {
     "analyze": "와인 식별·정보 확인 중",
     "organize": "결과를 정리하고 있습니다",
     "labelDetail": "Gemini가 라벨과 와인 지식으로 기본 정보를 정리합니다. 확인할 수 없는 항목은 추측하지 않고 안내합니다.",
-    "sommelierDetail": "품종·블렌딩 비율·참고가격을 조사합니다.",
+    "sommelierDetail": "Gemini가 와인 특징을 정리하고, 지금까지의 평가와 비교해 조언을 준비합니다.",
     "uploadTitle": "사진을 저장하고 있습니다",
     "cancel": "취소",
     "cancelled": "분석 표시를 취소했습니다. 이미 시작된 서버 처리는 계속될 수 있으며 사용 횟수에 포함됩니다.",

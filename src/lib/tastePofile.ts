@@ -146,8 +146,9 @@ export function calculateMatchScore(
     evidence.push({signal:sample.signal,weight:similarity*sample.weight,difference:structureDistance*4,grape:matches(wine.grape,sample.record.grape_variety),region:matches(wine.region,sample.record.region)})
   }
   const empty={score:null,grapeMatched:false,regionMatched:false,structureDiff:Infinity,evidenceCount:evidence.length}
+  if(evidence.length<3) return {...empty,reason:'insufficient'}
   if(profile.ratingSpread<.2) return {...empty,reason:'ratings_similar'}
-  if(evidence.length<3 || Math.max(...evidence.map(e=>e.weight))<.1) return {...empty,reason:'insufficient'}
+  if(Math.max(...evidence.map(e=>e.weight))<.1) return {...empty,reason:'insufficient'}
   const sum=evidence.reduce((n,e)=>n+e.weight,0)
   const signal=evidence.reduce((n,e)=>n+e.signal*e.weight,0)/sum
   // Small samples remain conservative; this is a reference index, not a probability.
