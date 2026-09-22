@@ -31,3 +31,10 @@ test('Gemini alone returns Japanese display with one quota reservation and no re
  const body=await response.json();assert.equal(body.provider,'gemini');assert.equal(body.result.producer,'Sileni / シレーニ')
  assert.equal(body.result.japanese,undefined)
 })
+
+test('Japanese katakana spacing is consistent for cropped and full-photo answers',()=>{
+ const a=readJapaneseWine({wineNameJa:'セラー・セレクション ソーヴィニヨン・ブラン',grapeVarietyJa:'ソーヴィニヨン・ブラン'})
+ const b=readJapaneseWine({wineNameJa:'セラー セレクション ソーヴィニヨン ブラン',grapeVarietyJa:'ソーヴィニヨン ブラン'})
+ assert.deepEqual(a,b)
+ assert.equal(a.wineName,'セラー・セレクション・ソーヴィニヨン・ブラン')
+})

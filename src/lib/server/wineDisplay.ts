@@ -8,7 +8,9 @@ export function readJapaneseWine(raw: Record<string, unknown>): JapaneseWine {
   const result: JapaneseWine = {}
   for (const field of japaneseFields) {
     const value = raw[`${field}Ja`]
-    if (typeof value === 'string' && value.trim() && value.length <= 300 && /[\u3040-\u30ff\u3400-\u9fff]/.test(value) && !/[<>\n\r]/.test(value)) result[field] = value.trim()
+    if (typeof value === 'string' && value.trim() && value.length <= 300 && /[\u3040-\u30ff\u3400-\u9fff]/.test(value) && !/[<>\n\r]/.test(value)) result[field] = ['wineName', 'producer', 'grapeVariety'].includes(field)
+      ? value.trim().replace(/(?<=[\p{Script=Katakana}ー])[\s・･]+(?=[\p{Script=Katakana}ー])/gu, '・')
+      : value.trim()
   }
   return result
 }
