@@ -50,8 +50,9 @@ export async function POST(req: Request) {
     const profile=calculateTasteProfile(sameType)
     const levels=details as typeof details & Record<'bodyLevel'|'tanninLevel'|'acidityLevel'|'alcoholLevel',number|null>
     const match=profile ? calculateMatchScore(profile,{body:levels.bodyLevel,tannin:levels.tanninLevel,acidity:levels.acidityLevel,alcohol:levels.alcoholLevel,grape:wine.grapeVariety,region:wine.region,country:wine.country}) : {score:null,grapeMatched:false,regionMatched:false,structureDiff:0,evidenceCount:0,reason:'insufficient' as const}
-    const displayed=displayJapaneseWine(wine,reading.knowledge || reading,reading.japanese || {},input.lang)
-    return Response.json({result:{...displayed,labelText:undefined,knowledge:undefined,japanese:undefined,...details,
+    const reviewedJapanese='reviewedJapanese' in wine ? wine.reviewedJapanese : null
+    const displayed=displayJapaneseWine(wine,reviewedJapanese ? wine : reading.knowledge || reading,reviewedJapanese || reading.japanese || {},input.lang)
+    return Response.json({result:{...displayed,reviewedJapanese:undefined,labelText:undefined,knowledge:undefined,japanese:undefined,...details,
       servingTemperature:servingTemperature({...wine,bodyLevel:levels.bodyLevel}),
       matchScore:match.score,matchReason:buildMatchReason(input.lang,match),matchRecordCount:match.evidenceCount,
       identificationHints:{wineName:wine.wineName||'',producer:wine.producer||'',vintage:wine.vintage||''},

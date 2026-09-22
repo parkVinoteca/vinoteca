@@ -79,3 +79,9 @@ test('Manual Japanese wine names can match the same Japanese display alias',asyn
  const response=await r.POST(request({lang:'ja',wineName:'ドメーヌ・ド・ランクロ シャブリ',producer:"Domaine de l'Enclos",vintage:'2022'}))
  assert.equal(response.status,200);const {result}=await response.json();assert.equal(result.profile.nose,'レモン');assert.ok(result.identificationHints)
 })
+test('Reviewed cava identity retains its reviewed Japanese presentation after canonical correction',async()=>{
+ const cava={labelText:'Proyecto Cu4tro Cava Premium Reserva 2021 Clos Mont-Blanc',vintage:'2021',observed:{wineName:'Proyecto Cu4tro Cava Premium Reserva',producer:'Clos Mont-Blanc'},knowledge:{confident:true,wineName:'Proyecto Cu4tro Cava Premium Reserva',producer:'Clos Mont-Blanc',country:'Spain',region:'Catalonia',wineType:'sparkling',grapeVariety:'Macabeu, Xarello, Parellada, Chardonnay'}}
+ const r=route({result:{...raw,identity:cava}})
+ const result=(await (await r.POST(request())).json()).result
+ assert.equal(result.country,'スペイン');assert.equal(result.producer,'Clos Montblanc / クロ・モンブラン');assert.ok(result.grapeVariety.includes('シャルドネ'));assert.equal(result.sources.length,1)
+})

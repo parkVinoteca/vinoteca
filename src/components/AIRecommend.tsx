@@ -184,8 +184,8 @@ export default function AIRecommend({ lang, user, onBack }: Props) {
             </div>
           )}
 
-          <p className="text-xs text-cave-100 leading-6">{st.knowledge}</p>
-          {result.sources?.length > 0 && <div className="card p-3 text-xs"><div>{lang === 'ja' ? '調査出典' : '조사 출처'}</div>{result.sources.map((source: { url: string; title: string }, i: number) => <a key={`${source.url}-${i}`} href={source.url} target="_blank" rel="noopener noreferrer" className="block underline mt-2 break-words">{source.title || source.url}</a>)}</div>}
+          <p className="text-xs text-cave-100 leading-6">{result.wineResearch?.status==='catalog' ? t.analysis.identityCatalog : st.knowledge}</p>
+          {result.sources?.length > 0 && <div className="card p-3 text-xs"><div>{lang === 'ja' ? '確認資料' : '확인 자료'}</div>{result.sources.map((source: { url: string; title: string }, i: number) => <a key={`${source.url}-${i}`} href={source.url} target="_blank" rel="noopener noreferrer" className="block underline mt-2 break-words">{source.title || source.url}</a>)}</div>}
           {(result.priceJPY || result.priceUSD) && (
             <div className="card p-4">
               <div className="text-xs tracking-wider uppercase text-gold-700 mb-2">
