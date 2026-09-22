@@ -29,6 +29,10 @@ export async function readSommelierInput(req: Request) {
   if (hints.vintage && !/^(\d{4}|NV)$/i.test(hints.vintage)) throw new ApiError('invalid_request',400)
   const image = body.imageBase64 == null ? null : validateImage(body)
   if (!image && !hints.wineName) throw new ApiError('wine_details_required',400)
+  if (!image && !hints.producer && hints.wineName) {
+    const generic=/^(?:chablis|bordeaux|burgundy|bourgogne|champagne|cava|california|toscana|chianti|france|italy|spain|red|white|rose|wine|cabernet|sauvignon|chardonnay|merlot|pinot|noir|sangiovese|riesling|シャブリ|ボルドー|ブルゴーニュ|シャンパーニュ|赤ワイン|白ワイン|샤블리|보르도|부르고뉴|레드|화이트|와인|\d{4})$/i
+    if(hints.wineName.normalize('NFKC').split(/[\s・,]+/).every(token=>generic.test(token))) throw new ApiError('wine_producer_required',400)
+  }
   return {image,hints,lang:body.lang as 'ja'|'ko'}
 }
 const textSchema = {type:['string','null']}

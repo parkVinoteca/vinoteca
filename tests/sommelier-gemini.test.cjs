@@ -52,3 +52,14 @@ test('Anthropic is blocked before any network request, including old unused help
 test('Serving temperature prioritises type and body over grape, and handles mixed blends conservatively',()=>{
  for(const [wine,expected] of [[{wineType:'sparkling',bodyLevel:5,grapeVariety:'Pinot Noir'},'6–10℃'],[{wineType:'white',bodyLevel:1,grapeVariety:'Chardonnay'},'7–10℃'],[{wineType:'white',bodyLevel:5},'10–13℃'],[{wineType:'red',grapeVariety:'ピノ・ノワール'},'12–14℃'],[{wineType:'red',grapeVariety:'Pinot Noir, Cabernet Sauvignon'},'15–18℃'],[{wineType:'red',bodyLevel:2,grapeVariety:'Syrah'},'12–14℃'],[{},null]])assert.equal(temperature(wine),expected)
 })
+
+test('Manual identities may know an unprinted winery, but must still match the actual typed product',async()=>{
+ const input={lang:'ja',wineName:'Textbook Cabernet Sauvignon',vintage:'2022'}
+ const resolved={...identity,knowledge:{...identity.knowledge,wineName:'Textbook Cabernet Sauvignon',producer:'Pey Family'}}
+ const r=route({result:{...raw,identity:resolved}});const result=(await (await r.POST(request(input))).json()).result
+ assert.equal(result.producer,'Pey Family');assert.equal(result.profile.nose,'レモン')
+ const changed=route({result:{...raw,identity:{...identity,knowledge:{...identity.knowledge,wineName:'Unrelated Product'}}}})
+ const rejected=(await (await changed.POST(request(input))).json()).result
+ assert.equal(rejected.profile.nose,null);assert.equal(rejected.sommelierComment,null)
+ const generic=route();assert.equal((await generic.POST(request({lang:'ja',wineName:'Chablis',vintage:'2022'}))).status,400);assert.equal(generic.calls.length,0)
+})

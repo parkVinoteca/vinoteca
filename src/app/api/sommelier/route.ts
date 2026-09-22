@@ -34,7 +34,14 @@ export async function POST(req: Request) {
     if(candidate?.finishReason!=='STOP') throw new ApiError('analysis_failed',502)
     const raw=parseResult(candidate.content?.parts?.filter((p:{thought?:boolean})=>!p.thought).map((p:{text?:string})=>p.text||'').join(''))
     if(!raw.identity || typeof raw.identity!=='object' || Array.isArray(raw.identity)) throw new ApiError('invalid_ai_result',502)
-    const reading=readWineAnalysis(raw.identity as Record<string,unknown>)
+    const identity=raw.identity as Record<string,unknown>
+    if(!input.image) {
+      // Bind text-only identity to actual user input, not model-invented OCR.
+      identity.labelText=Object.values(input.hints).filter(Boolean).join(' ')
+      identity.vintage=input.hints.vintage || identity.vintage
+      identity.observed={wineName:input.hints.wineName,producer:input.hints.producer}
+    }
+    const reading=readWineAnalysis(identity,!input.image)
     const wine=await resolveWine(reading)
     const details=readSommelierDetails(raw,history,!!reading.knowledge && reading.knowledge.wineType===wine.wineType)
     const alcoholPercent=input.image && typeof raw.labelAlcohol==='string' && /^\d{1,2}(?:[.,]\d)?\s*[%％]$/.test(raw.labelAlcohol) && reading.labelText.includes(raw.labelAlcohol) ? raw.labelAlcohol : null
