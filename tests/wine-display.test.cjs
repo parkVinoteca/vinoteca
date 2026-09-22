@@ -16,19 +16,18 @@ test('A corrected identity or rejected grape never inherits the earlier translat
  assert.equal(r.wineName,'Grand Reserve');assert.equal(r.grapeVariety,null)
  assert.deepEqual({...readJapaneseWine({wineNameJa:'<script>ワイン</script>',producerJa:'Sileni'})},{})
 })
-test('Slow Gemini hands over at 15 seconds and completes once using Haiku without another quota reservation',async()=>{
- let reservations=0;const timeouts=[]
- const handler=load('src/app/api/label/route.ts',{process:{env:{GEMINI_API_KEY:'test',ANTHROPIC_API_KEY:'test'}}},{
+test('Gemini alone returns Japanese display with one quota reservation and no research call',async()=>{
+ let reservations=0,calls=0
+ const handler=load('src/app/api/label/route.ts',{process:{env:{GEMINI_API_KEY:'test'}}},{
   '@/lib/server/ai':{...ai,authorize:async()=>({}),readImage:async()=>({lang:'ja'}),reserveUsage:async()=>{reservations++},providerFetch:async(url,init,timeout)=>{
-   timeouts.push(timeout)
-   if(url.includes('googleapis'))throw new ai.ApiError('provider_timeout',502)
-   return {stop_reason:'end_turn',content:[{type:'text',text:JSON.stringify({...original,labelText:'Sileni Cellar Selection Sauvignon Blanc Marlborough New Zealand 2025',knowledge:{...original,confident:true},...names})}]}
+   calls++;assert.ok(url.includes('googleapis.com'));assert.equal(timeout,60000)
+   const config=JSON.parse(init.body).generationConfig
+   assert.equal(config.thinkingConfig.thinkingLevel,'minimal')
+   return {candidates:[{finishReason:'STOP',content:{parts:[{text:JSON.stringify({vintage:'2025',labelText:'Sileni Cellar Selection Sauvignon Blanc Marlborough New Zealand 2025',knowledge:{...original,confident:true},...names})}]}}]}
   }},
-  '@/lib/server/wineLookup':{resolveWine:async reading=>reading.knowledge},
  })
  const response=await handler.POST(new Request('http://localhost/api/label'))
- assert.equal(response.status,200);assert.equal(reservations,1)
- assert.deepEqual(timeouts,[15000,30000])
- const body=await response.json();assert.equal(body.provider,'claude');assert.equal(body.result.producer,'Sileni / シレーニ')
+ assert.equal(response.status,200);assert.equal(reservations,1);assert.equal(calls,1)
+ const body=await response.json();assert.equal(body.provider,'gemini');assert.equal(body.result.producer,'Sileni / シレーニ')
  assert.equal(body.result.japanese,undefined)
 })

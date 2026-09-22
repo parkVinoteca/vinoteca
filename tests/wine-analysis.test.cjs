@@ -18,7 +18,7 @@ test('Wine knowledge complements visible labels without pretending to be web ver
 })
 test('Unknown identities, percentages, invented years and changed cuvees cannot use fast knowledge path',()=>{
  const good=sample("Domaine de l'Enclos",'Chablis','France','Chablis','Chardonnay')
- for(const k of [{confident:false},{producer:'Unrelated winery'},{grapeVariety:'Chardonnay 100%'},{country:null}])
+ for(const k of [{confident:false},{producer:'Unrelated winery'}])
   assert.equal(readWineAnalysis({...good,knowledge:{...good.knowledge,...k}}).knowledge,undefined)
  assert.equal(readWineAnalysis({...good,labelText:good.labelText.replace('Chablis','Petit Chablis')}).knowledge,undefined)
  assert.equal(knowledgeResult(readWineAnalysis({...good,vintage:'2023'})).vintage,null)
@@ -33,4 +33,17 @@ test('Source typography normalization tolerates curly apostrophes without invent
  assert.equal(normalizeEvidence("Cépage : Chardonnay\u00a0— l’Enclos"),normalizeEvidence("Cépage : Chardonnay - l'Enclos"))
  assert.notEqual(normalizeEvidence('Chardonnay'),normalizeEvidence('Chenin'))
  assert.equal(normalizeEvidence('Chardonnay\n  et\tPinot'),normalizeEvidence('Chardonnay et Pinot'))
+})
+
+test('One unknown field does not discard independently known information or start paid research',async()=>{
+ const raw=sample("Domaine de l'Enclos",'Chablis','France',null,'Chardonnay')
+ const reading=readWineAnalysis(raw)
+ assert.equal(knowledgeResult(reading).country,'France')
+ assert.equal(knowledgeResult(reading).region,null)
+ const noGrape=readWineAnalysis({...raw,knowledge:{...raw.knowledge,grapeVariety:null}})
+ assert.equal(knowledgeResult(noGrape).country,'France')
+ assert.equal(knowledgeResult(noGrape).grapeResearch.status,'not_found')
+ const ratios=readWineAnalysis({...raw,knowledge:{...raw.knowledge,grapeVariety:'Chardonnay 100%'}})
+ assert.equal(knowledgeResult(ratios).grapeVariety,null)
+ assert.equal(knowledgeResult(ratios).country,'France')
 })

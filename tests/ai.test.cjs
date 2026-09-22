@@ -120,27 +120,21 @@ test('Sommelier uses bounded Haiku searches and bounded evidence fetching withou
  assert.equal((await handler.POST(request(image))).status,200);assert.equal(calls,1)
 })
 
-test('Gemini outage uses Haiku once and a warm server skips the exhausted provider',async()=>{
+test('Gemini errors never invoke Anthropic, even when its key is configured',async()=>{
  for(const code of ['provider_busy','provider_billing','provider_timeout','provider_unavailable','provider_auth_failed','provider_model_unavailable']){
   const calls=[];let reservations=0
-  const mock={...ai,authorize:async()=>({}),reserveUsage:async()=>{reservations++},providerFetch:async(url,init)=>{
-   const body=JSON.parse(init.body);calls.push({url,body})
-   if(url.includes('googleapis'))throw new ai.ApiError(code,502)
-   return {stop_reason:'end_turn',content:[{type:'text',text:JSON.stringify({labelText:'Test Merlot',wineName:'Test',grapeVariety:'Merlot'})}]}
-  }}
-  const handler=load('src/app/api/label/route.ts',{process:{env:{GEMINI_API_KEY:'offline',ANTHROPIC_API_KEY:'offline'}}},{'@/lib/server/ai':mock,'@/lib/server/wineLookup':{resolveWine:async r=>r}})
-  for(let i=0;i<2;i++){const r=await handler.POST(request(image));assert.equal(r.status,200);assert.equal((await r.json()).provider,'claude')}
-  assert.equal(calls.length,3);assert.equal(reservations,2)
-  for(const c of calls.slice(1)){assert.equal(c.body.model,'claude-haiku-4-5-20251001');assert.equal(c.body.tools,undefined);assert.equal(c.body.max_tokens,1600)}
+  const mock={...ai,authorize:async()=>({}),reserveUsage:async()=>{reservations++},providerFetch:async(url)=>{calls.push(url);throw new ai.ApiError(code,502)}}
+  const handler=load('src/app/api/label/route.ts',{process:{env:{GEMINI_API_KEY:'offline',ANTHROPIC_API_KEY:'offline'}}},{'@/lib/server/ai':mock})
+  const r=await handler.POST(request(image));assert.equal(r.status,502)
+  assert.equal((await r.json()).error,code);assert.equal(calls.length,1);assert.equal(reservations,1)
+  assert.ok(calls[0].includes('googleapis.com'))
  }
 })
-test('Missing Gemini key can still use Haiku and double outages fail without looping',async()=>{
- for(const failed of [false,true]){
-  let calls=0
-  const mock={...ai,authorize:async()=>({}),reserveUsage:async()=>{},providerFetch:async()=>{calls++;if(failed)throw new ai.ApiError('provider_busy',502);return {stop_reason:'end_turn',content:[{type:'text',text:JSON.stringify({labelText:'Test Merlot',wineName:'Test',grapeVariety:'Merlot'})}]}}}
-  const handler=load('src/app/api/label/route.ts',{process:{env:{ANTHROPIC_API_KEY:'offline'}}},{'@/lib/server/ai':mock,'@/lib/server/wineLookup':{resolveWine:async r=>r}})
-  assert.equal((await handler.POST(request(image))).status,failed?502:200);assert.equal(calls,1)
- }
+test('Missing Gemini key fails before quota reservation and never uses a configured Claude key',async()=>{
+ let calls=0,reservations=0
+ const mock={...ai,authorize:async()=>({}),reserveUsage:async()=>{reservations++},providerFetch:async()=>{calls++}}
+ const handler=load('src/app/api/label/route.ts',{process:{env:{ANTHROPIC_API_KEY:'offline'}}},{'@/lib/server/ai':mock})
+ assert.equal((await handler.POST(request(image))).status,503);assert.equal(calls,0);assert.equal(reservations,0)
 })
 
 test('Provider citation markup is not shown as wine description text',()=>{
@@ -158,4 +152,17 @@ test('Sommelier grapes and blend require fetched evidence, never fermentation pe
  }
  const r=(await (await route(responseData({...valid,grapeVariety:'Invented grape'})).POST(request(image))).json()).result
  assert.equal(r.grapeVariety,null)
+})
+
+test('Latency diagnostics distinguish waiting for headers from a stalled response body without leaking data',async()=>{
+ for(const stage of ['waiting_headers','reading_body']){
+  const logs=[]
+  const timeout=Object.assign(new Error('SECRET upstream details'),{name:'TimeoutError'})
+  const isolated=load('src/lib/server/ai.ts',{Error,console:{warn:(...args)=>logs.push(args.join(' '))},fetch:async()=>{
+   if(stage==='waiting_headers')throw timeout
+   return {ok:true,json:async()=>{throw timeout}}
+  }})
+  await assert.rejects(isolated.providerFetch('https://generativelanguage.googleapis.com/v1beta/models/test:generateContent',{}),e=>e.code==='provider_timeout')
+  assert.ok(logs[0].includes(stage));assert.ok(!logs[0].includes('SECRET'))
+ }
 })

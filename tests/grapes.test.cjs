@@ -55,11 +55,11 @@ test('Visible varieties avoid additional calls and missing key is explicit', asy
  assert.equal((await s.enrich(label, 'ko')).grapeResearch.status, 'unavailable')
  assert.equal(s.calls(), 0)
 })
-test('Label route performs enrichment inside a single usage reservation', async () => {
+test('Label route resolves facts once without forwarding any provider credential', async () => {
  let reservations = 0, researches = 0
  const handler = load('src/app/api/label/route.ts', { process: { env: { GEMINI_API_KEY: 'offline', ANTHROPIC_API_KEY: 'offline' } } }, {
   '@/lib/server/ai': { ...ai, authorize: async () => ({}), readImage: async () => ({ lang: 'ko' }), reserveUsage: async () => { reservations++ }, providerFetch: async () => ({ candidates: [{ finishReason: 'STOP', content: { parts: [{ text: JSON.stringify({...label,labelText:'Mouton Cadet Reserve Margaux 2022 France'}) }] } }] }) },
-  '@/lib/server/wineLookup': { resolveWine: async (result, key) => { researches++; assert.equal(key,'offline'); return { ...result, grapeVariety: facts.grapeVariety, grapeResearch: { status: 'verified' } } } },
+  '@/lib/server/wineLookup': { resolveWine: async (result, key) => { researches++; assert.equal(key,undefined); return { ...result, grapeVariety: facts.grapeVariety, grapeResearch: { status: 'verified' } } } },
  })
  const response = await handler.POST(new Request('http://localhost/api/label'))
  assert.equal(response.status, 200)
