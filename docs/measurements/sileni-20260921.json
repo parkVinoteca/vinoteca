@@ -1,0 +1,31 @@
+{
+  "date": "2026-09-21",
+  "productionInvestigation": {
+    "version": "1.4",
+    "request": "q86cn-1789993715102-e0e743fa72ec",
+    "startedJST": "2026-09-21 21:28:35",
+    "client": "iPhone Safari",
+    "gemini": {"result":"provider_timeout","milliseconds":30003,"usageReturned":false},
+    "claude": {"model":"claude-haiku-4-5-20251001","milliseconds":2687,"inputTokens":1400,"outputTokens":237,"searches":0},
+    "responseFinishedSeconds":35.9,
+    "executionSeconds":35.06,
+    "limits":"Only label request in the inspected production window. Logs intentionally exclude photograph/identity, so correlation to the user-reported scan is based on time and device, not image equality. No 429/billing error observed. Provider-side timeout cause unknown."
+  },
+  "previewTest": {
+    "version":"1.4.1",
+    "commit":"0f58233",
+    "deployment":"dpl_8VdvDU9VEy8DVjzX9HMMBdkDAJVY",
+    "request":"2hrqk-1789994985750-a8e233938dc0",
+    "input":"User IMG_5370.HEIC converted to JPEG locally and manually cropped in the app to the label including vintage/country",
+    "model":"gemini-3.5-flash-lite",
+    "milliseconds":3321,
+    "inputTokens":1461,
+    "outputTokens":262,
+    "claudeCalls":0,
+    "responseFinishedSeconds":5.8,
+    "executionSeconds":5.02,
+    "estimatedAPIJPY":0,
+    "displayed":{"wineName":"セラー・セレクション ソーヴィニヨン・ブラン","vintage":"2025","producer":"Sileni / シレーニ","region":"マールボロ","country":"ニュージーランド","grapeVariety":"ソーヴィニヨン・ブラン"},
+    "limits":"One run, free-tier price rather than invoice, server timing excludes pre-request image upload. Fast Gemini response does not prove provider instability is cured. The 15-second fallback was verified with a simulated timeout in tests. No tasting record saved."
+  }
+}

@@ -1,0 +1,89 @@
+{
+  "date": "2026-09-22",
+  "environment": "Preview",
+  "commit": "8b0f657750d6dd6f4aa5da2c0921caf794967252",
+  "deployment": "dpl_8ViCGFT2W689q8DFzg5zyXiTuc2Q",
+  "model": "gemini-3.5-flash-lite",
+  "runs": [
+    {
+      "sample": "sileni-cropped",
+      "requestId": "6hnkn-1790038528750-79744ff7708c",
+      "headersMs": 1781,
+      "bodyMs": 2,
+      "inputTokens": 1434,
+      "outputTokens": 199,
+      "executionSeconds": 4.13,
+      "serverResponseSeconds": 5.2,
+      "providerMs": 1783,
+      "claudeCalls": 0,
+      "searchCalls": 0
+    },
+    {
+      "sample": "chablis-full-1",
+      "requestId": "6hnkn-1790038570111-3804f3ce2820",
+      "headersMs": 3029,
+      "bodyMs": 1,
+      "inputTokens": 1406,
+      "outputTokens": 183,
+      "executionSeconds": 4.49,
+      "serverResponseSeconds": 5.3,
+      "providerMs": 3030,
+      "claudeCalls": 0,
+      "searchCalls": 0
+    },
+    {
+      "sample": "chablis-full-2",
+      "requestId": "dhbqh-1790038595706-b0aea98a1ba3",
+      "headersMs": 1329,
+      "bodyMs": 2,
+      "inputTokens": 1406,
+      "outputTokens": 183,
+      "executionSeconds": 2.87,
+      "serverResponseSeconds": 3.7,
+      "providerMs": 1331,
+      "claudeCalls": 0,
+      "searchCalls": 0
+    },
+    {
+      "sample": "sileni-full",
+      "requestId": "gvgwh-1790038626269-047a0222c254",
+      "headersMs": 1614,
+      "bodyMs": 1,
+      "inputTokens": 1406,
+      "outputTokens": 198,
+      "executionSeconds": 2.94,
+      "serverResponseSeconds": 4.0,
+      "providerMs": 1615,
+      "claudeCalls": 0,
+      "searchCalls": 0
+    }
+  ],
+  "results": {
+    "Chablis": {
+      "wineName": "シャブリ",
+      "producer": "Domaine de l’Enclos / ドメーヌ・ド・ランクロ",
+      "vintage": "2022",
+      "region": "シャブリ",
+      "country": "フランス",
+      "grape": "シャルドネ",
+      "repeat": "Displayed fields identical in two full-photo requests."
+    },
+    "Sileni": {
+      "wineName": "Cellar Selection Sauvignon Blanc",
+      "producer": "Sileni / シレーニ",
+      "vintage": "2025",
+      "region": "マールボロ",
+      "country": "ニュージーランド",
+      "grape": "Sauvignon Blanc",
+      "repeat": "Core identity identical for crop and full photo. Japanese spacing differed; subsequent display-only normalization has an offline regression test."
+    }
+  },
+  "cost": "0 within verified free-project tier; no invoice inspected. Google Search not invoked. Paid-tier list-price equivalent is not an actual charge.",
+  "limitations": [
+    "Server response excludes preceding browser compression and Storage upload.",
+    "No 30-second stall reproduced in these four requests. Provider-side cause remains unconfirmed.",
+    "Two wines only; no claim of universal correctness or latency guarantee.",
+    "60-second deadline did not activate. Explicit minimal thinking is the model default, not a demonstrated latency fix.",
+    "No tasting records saved."
+  ]
+}

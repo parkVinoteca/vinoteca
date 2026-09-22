@@ -1,11 +1,13 @@
 import { ApiError, validateLabel } from '@/lib/server/ai'
 
 export type Label = ReturnType<typeof validateLabel>
-export type WineReading = Label & { labelText: string; knowledge?: Label }
+export type WineReading = Label & { labelText: string; brand?: string | null; background?: string | null; knowledge?: Label; japanese?: import('./wineDisplay').JapaneseWine }
 export type WineResearch = {
   status: 'catalog' | 'verified' | 'unverified' | 'unavailable' | 'knowledge'
   source: string | null
   catalogId: string | null
+  brand?: string | null
+  background?: string | null
 }
 export const normalizeWineText = (text: string) => text.normalize('NFKD').replace(/\p{M}/gu, '').toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').trim().replace(/\s+/g, ' ')
 const quality = /^(?:guarda superior|premium|reserva|reserve|gran reserva|brut|brut nature|extra brut|extra dry|doc|docg|aoc|aop|igt)$/i

@@ -232,7 +232,7 @@ export default function AIRecommend({ lang, user, onBack }: Props) {
           <div className="card p-4">
             <div className="font-serif italic text-xl text-gold-200">{result.wineName}</div>
             <dl className="mt-3 divide-y divide-cave-400/50 text-sm">
-              {[[lang === 'ja' ? '生産者' : '생산자', result.producer], [lang === 'ja' ? 'タイプ' : '유형', result.wineType], [lang === 'ja' ? 'ヴィンテージ' : '빈티지', result.vintage], [lang === 'ja' ? '生産地' : '생산지', [countryFlag(result.country), result.country, result.region].filter(Boolean).join(' ')], [lang === 'ja' ? '品種' : '품종', result.grapeVariety]].filter(([, value]) => value).map(([label, value]) => (
+              {[[lang === 'ja' ? 'ヴィンテージ' : '빈티지', result.vintage], [lang === 'ja' ? '生産者' : '생산자', result.producer], [lang === 'ja' ? 'タイプ' : '유형', t.wineType[result.wineType as keyof typeof t.wineType] || result.wineType], [lang === 'ja' ? '生産地' : '생산지', [countryFlag(result.country), result.country, result.region].filter(Boolean).join(' ')], [lang === 'ja' ? '品種' : '품종', result.grapeVariety]].filter(([, value]) => value).map(([label, value]) => (
                 <div key={String(label)} className="grid grid-cols-[88px_1fr] gap-3 py-2"><dt className="text-cave-100">{label}</dt><dd className="font-medium text-ink">{value}</dd></div>
               ))}
             </dl>

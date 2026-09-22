@@ -60,8 +60,12 @@ export async function reserveUsage(client: Awaited<ReturnType<typeof authorize>>
 export async function providerFetch(url: string, init: RequestInit, timeoutMs = 40000) {
   const provider = url.includes('googleapis.com') ? 'gemini' : 'claude'
   const started = Date.now()
+  let headersMs: number | null = null
+  let phase = 'waiting_headers'
   try {
     const response = await fetch(url, { ...init, signal: AbortSignal.timeout(Math.min(60000, Math.max(1000, timeoutMs))), cache: 'no-store' })
+    headersMs = Date.now() - started
+    phase = 'reading_body'
     if (!response.ok) {
       const body = await response.json().catch(() => null)
       // Classify in memory; provider text may contain secrets, so never return or log it.
@@ -71,7 +75,7 @@ export async function providerFetch(url: string, init: RequestInit, timeoutMs = 
       else if (response.status === 429) code = 'provider_busy'
       else if (/credit balance|billing|payment|insufficient.*credit/i.test(message) || response.status === 402) code = 'provider_billing'
       else if (response.status === 404) code = 'provider_model_unavailable'
-      console.error('[ai_provider]', JSON.stringify({ provider, status: response.status, code, milliseconds: Date.now() - started }))
+      console.error('[ai_provider]', JSON.stringify({ provider, status: response.status, code, phase, headersMs, milliseconds: Date.now() - started }))
       throw new ApiError(code, 502)
     }
     const data = await response.json()
@@ -79,7 +83,7 @@ export async function providerFetch(url: string, init: RequestInit, timeoutMs = 
     const usage = data.usage || data.usageMetadata
     if (usage) {
       const number = (v: unknown) => typeof v === 'number' && Number.isFinite(v) ? v : null
-      console.info?.('[ai_usage]', JSON.stringify({provider, milliseconds:Date.now()-started,
+      console.info?.('[ai_usage]', JSON.stringify({provider, headersMs, bodyMs:Date.now()-started-headersMs, milliseconds:Date.now()-started,
         inputTokens:number(usage.input_tokens ?? usage.promptTokenCount),
         outputTokens:number(usage.output_tokens ?? usage.candidatesTokenCount),
         thinkingTokens:number(usage.thoughtsTokenCount),
@@ -92,7 +96,7 @@ export async function providerFetch(url: string, init: RequestInit, timeoutMs = 
   } catch (error) {
     if (error instanceof ApiError) throw error
     const timeout = error instanceof Error && ['TimeoutError', 'AbortError'].includes(error.name)
-    console.warn('[ai_provider]', JSON.stringify({ provider, code: timeout ? 'provider_timeout' : 'provider_unavailable', milliseconds: Date.now() - started }))
+    console.warn('[ai_provider]', JSON.stringify({ provider, phase, headersMs, code: timeout ? 'provider_timeout' : 'provider_unavailable', milliseconds: Date.now() - started }))
     throw new ApiError(timeout ? 'provider_timeout' : 'provider_unavailable', 502)
   }
 }

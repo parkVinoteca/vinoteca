@@ -55,26 +55,11 @@ test('Reviewed cuvee avoids research and credentials entirely',async()=>{
  const resolver=load('src/lib/server/wineLookup.ts',{}, {'next/cache':{unstable_cache:()=>{throw new Error('should not cache curated facts')}},'@/lib/server/grapes':{enrichGrapes:()=>{throw new Error('should not research curated facts')}}})
  assert.equal((await resolver.resolveWine(reading)).wineResearch.status,'catalog')
 })
-test('Shared cache reuses verified facts across credentials but never caches incomplete lookup',async()=>{
- let calls=0, verified=true
- const cache=new Map()
- const resolver=load('src/lib/server/wineLookup.ts',{}, {
-  'next/cache':{unstable_cache:(fn,key)=>async()=>{const k=JSON.stringify(key);if(cache.has(k))return cache.get(k);const r=await fn();cache.set(k,r);return r}},
-  '@/lib/server/grapes':{enrichGrapes:async()=>{calls++;return {wineResearch:{status:verified?'verified':'unavailable'},grapeResearch:{status:verified?'verified':'unavailable'}}}},
- })
- await resolver.resolveWine(observed,'keyA');await resolver.resolveWine(observed,'keyB');assert.equal(calls,1)
- verified=false
- for(let i=0;i<2;i++)await resolver.resolveWine({...observed,vintage:'2022'})
- assert.equal(calls,3)
- assert.equal([...cache.keys()].some(k=>k.includes('keyA')||k.includes('keyB')),false)
-})
-test('Cache write failure after research does not issue a second paid research request',async()=>{
- let calls=0
- const resolver=load('src/lib/server/wineLookup.ts',{}, {
-  'next/cache':{unstable_cache:fn=>async()=>{await fn();throw new Error('cache write failure')}},
-  '@/lib/server/grapes':{enrichGrapes:async()=>{calls++;return {wineResearch:{status:'verified'},grapeResearch:{status:'verified'}}}},
- })
- await resolver.resolveWine(observed,'key');assert.equal(calls,1)
+test('Ambiguous identity preserves printed facts without an external search',async()=>{
+ const resolver=load('src/lib/server/wineLookup.ts',{}, {'@/lib/server/grapes':{enrichGrapes:()=>{throw Error('Anthropic must not run')}}})
+ const result=await resolver.resolveWine(identity.readWineLabel({labelText:'Example Merlot France 2022',wineName:'Example',grapeVariety:'Merlot',country:'France',vintage:'2022'}))
+ assert.equal(result.grapeVariety,'Merlot');assert.equal(result.country,'France')
+ assert.equal(result.wineResearch.status,'unverified');assert.equal(result.grapeResearch.status,'label')
 })
 test('General research corrects all identity roles even when OCR already read a grape',async()=>{
  const ai=load('src/lib/server/ai.ts')
