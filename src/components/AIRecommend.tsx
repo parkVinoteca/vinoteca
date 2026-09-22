@@ -71,7 +71,7 @@ export default function AIRecommend({ lang, user, onBack }: Props) {
       if(controller.signal.aborted) return
       setAnalysisStage('organize')
       setResult(aiResult)
-      setHints({wineName:aiResult.wineName || '',producer:aiResult.producer || '',vintage:aiResult.vintage || ''})
+      setHints(aiResult.identificationHints || {wineName:aiResult.wineName || '',producer:aiResult.producer || '',vintage:aiResult.vintage || ''})
     } catch(e) {
       if(!controller.signal.aborted) setError(e instanceof Error ? e.message : t.common.error)
     } finally {

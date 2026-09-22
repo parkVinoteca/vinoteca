@@ -74,3 +74,8 @@ test('One comparable record is described as insufficient, not as uniform ratings
  const result=taste.calculateMatchScore(profile,{body:3,tannin:1,acidity:5,alcohol:3})
  assert.equal(result.reason,'insufficient')
 })
+test('Manual Japanese wine names can match the same Japanese display alias',async()=>{
+ const r=route({result:{...raw,identity:{...identity,wineNameJa:'シャブリ'}}})
+ const response=await r.POST(request({lang:'ja',wineName:'ドメーヌ・ド・ランクロ シャブリ',producer:"Domaine de l'Enclos",vintage:'2022'}))
+ assert.equal(response.status,200);const {result}=await response.json();assert.equal(result.profile.nose,'レモン');assert.ok(result.identificationHints)
+})

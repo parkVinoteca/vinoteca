@@ -42,7 +42,9 @@ export function readWineAnalysis(raw: Record<string, unknown>, allowUnprintedPro
     const seen=normalizeWineText(reading.labelText)
     const designationText=seen.replace(/\b(?:premier\s+)?grand\s+cru\s+classe(?:e)?\b/g, '')
     const significant=(s:string)=>normalizeWineText(s).split(' ').filter(t=>t.length>=3&&!['domaine','chateau','estate','wine','reserve','reserva','the'].includes(t))
-    if (![label.wineName!,...(!allowUnprintedProducer && label.producer ? [label.producer] : [])].every(v=>significant(v).some(t=>seen.split(' ').includes(t)))) return reading
+    const originalAnchored=[label.wineName!,...(!allowUnprintedProducer && label.producer ? [label.producer] : [])].every(v=>significant(v).some(t=>seen.split(' ').includes(t)))
+    const japaneseAnchored=allowUnprintedProducer && reading.japanese?.wineName && normalizeWineText(reading.japanese.wineName).length>=3 && seen.includes(normalizeWineText(reading.japanese.wineName))
+    if (!originalAnchored && !japaneseAnchored) return reading
     for(const variant of ['premium','reserva','reserve','rose','rosado','premier','grand','petit']) {
       if (new RegExp(`\\b${variant}\\b`).test(designationText) && !new RegExp(`\\b${variant}\\b`).test(normalizeWineText(label.wineName!))) return reading
     }

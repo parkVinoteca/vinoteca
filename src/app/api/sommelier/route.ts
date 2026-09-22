@@ -54,6 +54,7 @@ export async function POST(req: Request) {
     return Response.json({result:{...displayed,labelText:undefined,knowledge:undefined,japanese:undefined,...details,
       servingTemperature:servingTemperature({...wine,bodyLevel:levels.bodyLevel}),
       matchScore:match.score,matchReason:buildMatchReason(input.lang,match),matchRecordCount:match.evidenceCount,
+      identificationHints:{wineName:wine.wineName||'',producer:wine.producer||'',vintage:wine.vintage||''},
       analysisBasis:'knowledge',historySampleCount:history.length,historyWindowCount:records.length,
       alcoholPercent,priceJPY:null,blendRatio:null,sources:wine.wineResearch.source ? [{url:wine.wineResearch.source,title:input.lang==='ja'?'銘柄・品種の確認資料':'와인·품종 확인 자료'}] : [],researchedAt:null,
     },provider:'gemini'}, {headers:{'Cache-Control':'no-store'}})
