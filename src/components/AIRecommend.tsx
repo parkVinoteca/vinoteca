@@ -2,19 +2,21 @@
 import { useState, useRef, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import { translations, Language } from '@/i18n'
-import { calculateTasteProfile, calculateMatchScore, buildMatchReason, TastingRecord } from '@/lib/tastePofile'
-import { analyzeImage } from '@/lib/aiClient'
+import { analyzeImage, analyzeSommelier } from '@/lib/aiClient'
 import AnalysisProgress, { type AnalysisStage } from './AnalysisProgress'
 import SommelierNote from './SommelierNote'
+import SommelierDetails from './SommelierDetails'
+import { sommelierText } from '@/i18n/sommelier'
 import ImageCropModal from './ImageCropModal'
 import { personalRating } from '@/lib/ratings'
-import { TASTE_PROFILE_MIN_RECORDS, TASTE_PROFILE_RECORD_LIMIT } from '@/lib/productConfig'
+import { TASTE_PROFILE_MIN_RECORDS } from '@/lib/productConfig'
 import type { User } from '@supabase/supabase-js'
 
 interface Props { lang: Language; user: User; onBack: () => void }
 
 export default function AIRecommend({ lang, user, onBack }: Props) {
   const t = translations[lang]
+  const st = sommelierText[lang]
   const fileRef = useRef<HTMLInputElement>(null)
   const uploadRef = useRef<HTMLInputElement>(null)
   const [imageUrl, setImageUrl] = useState('')
@@ -25,9 +27,8 @@ export default function AIRecommend({ lang, user, onBack }: Props) {
   const [analyzing, setAnalyzing] = useState(false)
   const [result, setResult] = useState<any>(null)
   const [error, setError] = useState('')
-  const [typeCounts, setTypeCounts] = useState<Record<string,number>>({})
-  const redCount = typeCounts.red || 0
-  const whiteCount = typeCounts.white || 0
+  const [recordCount,setRecordCount] = useState<number|null>(null)
+  const [hints,setHints] = useState({wineName:'',producer:'',vintage:''})
   const [usageThisMonth, setUsageThisMonth] = useState(0)
   const [usageLimit, setUsageLimit] = useState(5)
   const [cropFile, setCropFile] = useState<File | null>(null)
@@ -35,17 +36,14 @@ export default function AIRecommend({ lang, user, onBack }: Props) {
   useEffect(() => { loadStats().catch(() => setError(t.common.error)) }, [user.id])
 
   const loadStats = async () => {
-    const { data: tastings } = await supabase
+    const { data: tastings, error: tastingsError } = await supabase
       .from('tastings')
       .select('wine_type,stars,score')
       .eq('user_id', user.id)
       .or('score.not.is.null,stars.not.is.null')
 
-    if (tastings) {
-      const counts: Record<string,number> = {}
-      tastings.filter(t=>personalRating(t)!==null).forEach(t=>{if(t.wine_type)counts[t.wine_type]=(counts[t.wine_type]||0)+1})
-      setTypeCounts(counts)
-    }
+    if(tastingsError) throw new Error(t.common.error)
+    setRecordCount((tastings || []).filter(t=>personalRating(t)!==null).length)
 
     const tokyoMonth = new Date().toLocaleDateString('sv-SE', { timeZone: 'Asia/Tokyo' }).slice(0, 7)
     const startOfMonth = new Date(`${tokyoMonth}-01T00:00:00+09:00`)
@@ -62,76 +60,23 @@ export default function AIRecommend({ lang, user, onBack }: Props) {
     setUsageLimit(limits?.sommelier_monthly_limit || 20)
   }
 
-  const analyzeWine = async (cropped: { base64: string; mediaType: string }) => {
+  const analyzeWine = async (cropped?: { base64: string; mediaType: string }) => {
     analysisRequest.current?.abort()
     const controller = new AbortController()
     analysisRequest.current = controller
-    setImageUrl(`data:${cropped.mediaType};base64,${cropped.base64}`)
-    setAnalysisStage('analyze')
-    setAnalyzing(true)
-    setResult(null)
-    setError('')
+    setImageUrl(cropped ? `data:${cropped.mediaType};base64,${cropped.base64}` : '')
+    setAnalysisStage('analyze'); setAnalyzing(true); setResult(null); setError('')
     try {
-      try {
-        const aiResult = await analyzeImage('sommelier', cropped, lang, controller.signal)
-        if (controller.signal.aborted) return
-        setAnalysisStage('organize')
-        let tasteProfile = null
-        const relevantCount = typeCounts[aiResult.wineType] || 0
-        const canMatch = relevantCount >= TASTE_PROFILE_MIN_RECORDS
-        if (canMatch && aiResult.wineType) {
-          const { data, error } = await supabase.from('tastings')
-            .select('wine_type, body, tannin, acidity, alcohol, grape_variety, country, region, score, stars, created_at')
-            .eq('user_id', user.id).eq('wine_type', aiResult.wineType)
-            .or('score.not.is.null,stars.not.is.null')
-            .order('created_at', { ascending: false }).order('id', { ascending: false })
-            .limit(TASTE_PROFILE_RECORD_LIMIT)
-          if (error) throw new Error(t.common.error)
-          const records = (data || []) as TastingRecord[]
-          tasteProfile = calculateTasteProfile(records)
-        }
-
-        // 매칭 점수는 코드가 직접 계산 (AI 재호출 없음, 무료, 즉시)
-        let finalResult: any = { ...aiResult, matchScore: null, matchReason: '', matchRecordCount: relevantCount }
-
-        if (canMatch && tasteProfile && aiResult.bodyLevel !== undefined) {
-          const matchResult = calculateMatchScore(tasteProfile, {
-            body: aiResult.bodyLevel,
-            tannin: aiResult.tanninLevel,
-            acidity: aiResult.acidityLevel,
-            alcohol: aiResult.alcoholLevel,
-            grape: aiResult.grapeVariety,
-            region: aiResult.region,
-            country: aiResult.country,
-          })
-          finalResult.matchRecordCount = matchResult.evidenceCount
-          finalResult.matchScore = matchResult.score
-          finalResult.matchReason = buildMatchReason(lang, matchResult)
-        } else {
-          finalResult.matchReason = lang === 'ja'
-            ? `このタイプの記録が不足しています（${relevantCount}/${TASTE_PROFILE_MIN_RECORDS}本）。点数に関係なく、ボディや酸味などの記録が参考になります。`
-            : `이 유형의 기록이 부족합니다 (${relevantCount}/${TASTE_PROFILE_MIN_RECORDS}병). 점수에 관계없이 바디·산미 같은 기록이 도움이 됩니다.`
-        }
-
-        if (controller.signal.aborted) return
-        setResult(finalResult)
-        setImageUrl(`data:${cropped.mediaType};base64,${cropped.base64}`)
-
-      } catch (e: any) {
-        if (controller.signal.aborted) return
-        console.error('Analysis failed:', e)
-        setError(
-          (lang === 'ja' ? '解析に失敗しました: ' : '분석에 실패했습니다: ') +
-          (e?.message || (lang === 'ja' ? '不明なエラー' : '알 수 없는 오류'))
-        )
-      } finally {
-        if (analysisRequest.current === controller) setAnalyzing(false)
-        loadStats().catch(() => {})
-      }
-    } catch (e) {
-      console.error(e)
-      setAnalyzing(false)
-      setError(t.common.error)
+      const aiResult = cropped ? await analyzeImage('sommelier',cropped,lang,controller.signal) : await analyzeSommelier(hints,lang,controller.signal)
+      if(controller.signal.aborted) return
+      setAnalysisStage('organize')
+      setResult(aiResult)
+      setHints({wineName:aiResult.wineName || '',producer:aiResult.producer || '',vintage:aiResult.vintage || ''})
+    } catch(e) {
+      if(!controller.signal.aborted) setError(e instanceof Error ? e.message : t.common.error)
+    } finally {
+      if(analysisRequest.current===controller) setAnalyzing(false)
+      loadStats().catch(()=>{})
     }
   }
 
@@ -150,41 +95,16 @@ export default function AIRecommend({ lang, user, onBack }: Props) {
     return flags[normalized] || ''
   }
 
-  const canMatch = redCount >= TASTE_PROFILE_MIN_RECORDS || whiteCount >= TASTE_PROFILE_MIN_RECORDS
+  const unlocked = recordCount !== null && recordCount >= TASTE_PROFILE_MIN_RECORDS
+  const unavailable = analyzing || !unlocked || usageThisMonth >= usageLimit
 
   return (
     <div className="max-w-lg mx-auto p-4">
-      <div className="section-title">{t.recommend.title}</div>
-      <div className="text-sm text-gold-200 mb-1">{t.recommend.subtitle}</div>
-      <div className="text-xs text-cave-200 mb-4">💡 {t.recommend.infoOnly}</div>
+      <div className="section-title">{st.title}</div>
+      <div className="text-sm text-gold-200 mb-1">{st.subtitle}</div>
+      <div className="text-xs text-cave-200 mb-4">💡 {st.knowledge}</div>
 
-      {!canMatch && (
-        <div className="card p-3 mb-4">
-          <div className="text-xs text-gold-700 tracking-wider uppercase mb-2">
-            {lang === 'ja' ? '相性診断の解放条件' : '취향 진단 해금 조건'}
-          </div>
-          <div className="space-y-2">
-            <div>
-              <div className="flex justify-between text-xs text-cave-100 mb-1">
-                <span>{lang === 'ja' ? '赤ワイン' : '레드 와인'}</span>
-                <span>{redCount}/3</span>
-              </div>
-              <div className="h-1.5 bg-cave-600/50 rounded-full overflow-hidden">
-                <div className="h-full bg-gradient-to-r from-gold-500 to-gold-600 rounded-full transition-all" style={{ width: `${Math.min(redCount / 3 * 100, 100)}%` }} />
-              </div>
-            </div>
-            <div>
-              <div className="flex justify-between text-xs text-cave-100 mb-1">
-                <span>{lang === 'ja' ? '白ワイン' : '화이트 와인'}</span>
-                <span>{whiteCount}/3</span>
-              </div>
-              <div className="h-1.5 bg-cave-600/50 rounded-full overflow-hidden">
-                <div className="h-full bg-gradient-to-r from-gold-500 to-gold-600 rounded-full transition-all" style={{ width: `${Math.min(whiteCount / 3 * 100, 100)}%` }} />
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+      {!unlocked && <div className="card p-4 mb-4 text-sm leading-7 text-ink"><p>{recordCount===null ? st.checking : st.gate}</p>{recordCount!==null && <p>{st.progress}: {recordCount}/{TASTE_PROFILE_MIN_RECORDS}</p>}</div>}
 
       <p className={`text-sm mb-3 ${usageThisMonth >= usageLimit - 1 ? 'text-gold-700 font-medium' : 'text-cave-100'}`}>
         {lang === 'ja' ? `今月の利用回数: ${usageThisMonth} / ${usageLimit}回` : `이번 달 사용 횟수: ${usageThisMonth} / ${usageLimit}회`}
@@ -205,17 +125,27 @@ export default function AIRecommend({ lang, user, onBack }: Props) {
       )}
 
       <div className="grid grid-cols-2 gap-3 mb-4">
-        <button onClick={() => fileRef.current?.click()} disabled={analyzing || usageThisMonth >= usageLimit}
+        <button onClick={() => fileRef.current?.click()} disabled={unavailable}
           className="border-2 border-dashed border-gold-900/40 py-8 text-center text-cave-100 hover:border-gold-500/50 transition-colors rounded-lg disabled:opacity-50">
           <div className="text-2xl mb-1">📷</div>
           <div className="text-xs">{lang === 'ja' ? '撮影' : '촬영'}</div>
         </button>
-        <button onClick={() => uploadRef.current?.click()} disabled={analyzing || usageThisMonth >= usageLimit}
+        <button onClick={() => uploadRef.current?.click()} disabled={unavailable}
           className="border-2 border-dashed border-gold-900/40 py-8 text-center text-cave-100 hover:border-gold-500/50 transition-colors rounded-lg disabled:opacity-50">
           <div className="text-2xl mb-1">🖼️</div>
           <div className="text-xs">{lang === 'ja' ? 'アップロード' : '업로드'}</div>
         </button>
       </div>
+
+      <details className="card p-4 mb-4" open={!!result?.clarification}>
+        <summary className="cursor-pointer font-medium text-ink">{st.manual}</summary>
+        <form className="mt-3 space-y-3" onSubmit={e=>{e.preventDefault();void analyzeWine()}}>
+          <p className="text-xs leading-6 text-cave-100">{result?.clarification || st.hint}</p>
+          {(['wineName','vintage','producer'] as const).map(key=><label key={key} className="block text-sm text-ink">{key==='wineName'?st.name:st[key]}<input className="input-field mt-1 w-full" value={hints[key]} required={key==='wineName'} maxLength={key==='vintage'?4:200} pattern={key==='vintage'?'[0-9]{4}|[Nn][Vv]':undefined} disabled={analyzing} onChange={e=>setHints({...hints,[key]:e.target.value})}/></label>)}
+          <p className="text-xs text-cave-100">{st.quotaHint}</p>
+          <button type="submit" disabled={unavailable} className="btn-primary w-full disabled:opacity-50">{st.submit}</button>
+        </form>
+      </details>
 
       {analyzing && <AnalysisProgress imageUrl={imageUrl} lang={lang} stage={analysisStage} mode="sommelier" onCancel={cancelAnalysis} />}
 
@@ -232,10 +162,11 @@ export default function AIRecommend({ lang, user, onBack }: Props) {
           <div className="card p-4">
             <div className="font-serif italic text-xl text-gold-200">{result.wineName}</div>
             <dl className="mt-3 divide-y divide-cave-400/50 text-sm">
-              {[[lang === 'ja' ? 'ヴィンテージ' : '빈티지', result.vintage], [lang === 'ja' ? '生産者' : '생산자', result.producer], [lang === 'ja' ? 'タイプ' : '유형', t.wineType[result.wineType as keyof typeof t.wineType] || result.wineType], [lang === 'ja' ? '生産地' : '생산지', [countryFlag(result.country), result.country, result.region].filter(Boolean).join(' ')], [lang === 'ja' ? '品種' : '품종', result.grapeVariety]].filter(([, value]) => value).map(([label, value]) => (
+              {[[lang === 'ja' ? 'ヴィンテージ' : '빈티지', result.vintage], [lang === 'ja' ? '生産者' : '생산자', result.producer], [lang === 'ja' ? 'タイプ' : '유형', t.wineType[result.wineType as keyof typeof t.wineType] || result.wineType], [lang === 'ja' ? '生産地' : '생산지', [countryFlag(result.country), result.country, result.region].filter(Boolean).join(' ')], [lang === 'ja' ? '品種' : '품종', result.grapeVariety || st.unconfirmed], [st.abv, result.alcoholPercent || st.unconfirmed], [st.price, result.priceJPY || st.unconfirmed]].filter(([, value]) => value).map(([label, value]) => (
                 <div key={String(label)} className="grid grid-cols-[88px_1fr] gap-3 py-2"><dt className="text-cave-100">{label}</dt><dd className="font-medium text-ink">{value}</dd></div>
               ))}
             </dl>
+            {result.clarification && <p className="mt-3 text-sm leading-6 text-gold-700">{result.clarification}</p>}
           </div>
 
           {result.blendRatio && (
@@ -252,7 +183,7 @@ export default function AIRecommend({ lang, user, onBack }: Props) {
             </div>
           )}
 
-          <p className="text-xs text-cave-100">{lang === 'ja' ? '価格は日本市場の参考情報です。構造・相性スコアは推定であり、好みの確率ではありません。' : '가격은 일본 시장의 참고 정보입니다. 구조·취향 점수는 추정치이며 선호 확률이 아닙니다.'}</p>
+          <p className="text-xs text-cave-100 leading-6">{st.knowledge}</p>
           {result.sources?.length > 0 && <div className="card p-3 text-xs"><div>{lang === 'ja' ? '調査出典' : '조사 출처'}</div>{result.sources.map((source: { url: string; title: string }, i: number) => <a key={`${source.url}-${i}`} href={source.url} target="_blank" rel="noopener noreferrer" className="block underline mt-2 break-words">{source.title || source.url}</a>)}</div>}
           {(result.priceJPY || result.priceUSD) && (
             <div className="card p-4">
@@ -276,6 +207,7 @@ export default function AIRecommend({ lang, user, onBack }: Props) {
 
 
           <SommelierNote lang={lang} result={result} />
+          <SommelierDetails lang={lang} result={result} />
           <div className="card p-4">
             <div className="text-xs font-medium text-ink mb-3">{t.recommend.match}</div>
             {result.matchScore !== null && result.matchScore !== undefined ? (
@@ -321,7 +253,7 @@ export default function AIRecommend({ lang, user, onBack }: Props) {
             </div>
           )}
 
-          <button onClick={() => uploadRef.current?.click()} className="btn-secondary w-full">
+          <button onClick={() => uploadRef.current?.click()} disabled={unavailable} className="btn-secondary w-full disabled:opacity-50">
             {lang === 'ja' ? '別のワインを解析' : '다른 와인 분석'}
           </button>
         </div>

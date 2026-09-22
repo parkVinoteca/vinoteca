@@ -1,5 +1,5 @@
 import type { Language } from '@/i18n'
-import { sommelierPersonalLine } from '@/lib/sommelierNote'
+import { sommelierText } from '@/i18n/sommelier'
 
 export function SommelierIcon() {
  return <svg viewBox="0 0 64 64" className="h-14 w-14 shrink-0" aria-hidden="true" fill="none">
@@ -14,15 +14,14 @@ export function SommelierIcon() {
   <path d="M49 37h8v1a4 4 0 0 1-8 0Z" fill="#c8102e"/>
  </svg>
 }
-export default function SommelierNote({lang,result}:{lang:Language;result:{sommelierComment?:string|null;sommelierCommentSource?:string|null;matchScore?:number|null}}) {
- const fact = result.sommelierComment && result.sommelierCommentSource?.startsWith('https://') ? result.sommelierComment : null
- return <section className="flex items-start gap-3 py-3" aria-label={lang==='ja'?'ソムリエのひとこと':'소믈리에의 한마디'}>
+export default function SommelierNote({lang,result}:{lang:Language;result:{sommelierComment?:string|null;historyReferences?:{wineName:string|null;rating:number|null;region:string|null}[]}}) {
+ const t=sommelierText[lang]
+ return <section className="flex items-start gap-3 py-3" aria-label={t.note}>
   <SommelierIcon />
   <div className="relative min-w-0 flex-1 rounded-2xl rounded-tl-none border border-gold-200 bg-gold-50 p-4 shadow-sm">
-   <h3 className="text-xs font-semibold text-gold-700 mb-2">{lang==='ja'?'ソムリエのひとこと':'소믈리에의 한마디'}</h3>
-   {fact && <p className="text-sm leading-7 text-ink mb-2">{fact}</p>}
-   <p className="text-sm leading-7 text-ink">{sommelierPersonalLine(lang,result.matchScore)}</p>
-   {fact && <a className="mt-2 inline-block text-xs text-gold-700 underline" href={result.sommelierCommentSource!} target="_blank" rel="noopener noreferrer">{lang==='ja'?'ワイン情報の出典':'와인 정보 출처'} ↗</a>}
+   <h3 className="text-xs font-semibold text-gold-700 mb-2">{t.note}</h3>
+   <p className="text-sm leading-7 text-ink">{result.sommelierComment || t.noComparison}</p>
+   {!!result.historyReferences?.length && <div className="mt-3 border-t border-gold-200 pt-3"><p className="text-xs text-cave-100">{t.references}</p><ul className="mt-2 space-y-2">{result.historyReferences.map((r,i)=><li key={i} className="text-xs leading-5 text-ink">{r.wineName || r.region} <span className="font-semibold">{r.rating?.toFixed(1)} / 5</span></li>)}</ul></div>}
   </div>
  </section>
 }

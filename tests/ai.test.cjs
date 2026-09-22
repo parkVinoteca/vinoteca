@@ -23,31 +23,6 @@ test('Quota store failure fails closed, and rejection never looks like success',
   await assert.rejects(ai.reserveUsage({ rpc: async () => ({ error: new Error('DB offline') }) }, 'sommelier'), e => e.status === 503)
   await assert.rejects(ai.reserveUsage({ rpc: async () => ({ data: false }) }, 'sommelier'), e => e.status === 429)
 })
-function route(data, extra = {}) {
-  let calls = 0, reservations = 0
-  const mock = { ...ai, authorize: async () => ({}), reserveUsage: async () => { reservations++ }, providerFetch: async () => { calls++; return data }, ...extra }
-  return { POST: load('src/app/api/sommelier/route.ts', { process: { env: { ANTHROPIC_API_KEY: 'offline-test-placeholder' } } }, { '@/lib/server/ai': mock }).POST, counts: () => ({ calls, reservations }) }
-}
-const responseData = (result = valid, stop_reason = 'end_turn') => ({ stop_reason, content: [ { type: 'web_search_tool_result', content: [{ type: 'web_search_result', url: 'https://example.com/wine', title: 'Example' }] }, { type: 'text', text: JSON.stringify(result) } ] })
-test('Sommelier reserves before provider call and removes unsupported source claims', async () => {
-  const handler = route(responseData())
-  const response = await handler.POST(request(image))
-  const { result } = await response.json()
-  assert.equal(response.status, 200)
-  assert.equal(result.priceJPY, 'JPY 3000')
-  assert.equal(result.blendRatio, null)
-  assert.equal(result.sommelierComment, null)
-  assert.equal(result.sommelierCommentSource, null)
-  assert.deepEqual(handler.counts(), { reservations: 1, calls: 1 })
-})
-test('Sommelier rejects invalid AI results, truncation and missing search evidence', async () => {
-  for (const data of [responseData({ ...valid, bodyLevel: 999 }), responseData(valid, 'max_tokens'), { stop_reason: 'end_turn', content: [{ type: 'text', text: JSON.stringify(valid) }] }]) assert.equal((await route(data).POST(request(image))).status, 502)
-})
-test('Rate rejection prevents any paid provider call', async () => {
-  const handler = route(responseData(), { reserveUsage: async () => { throw new ai.ApiError('usage_limit', 429) } })
-  assert.equal((await handler.POST(request(image))).status, 429)
-  assert.equal(handler.counts().calls, 0)
-})
 test('Provider errors do not leak upstream response details', async () => {
   const isolated = load('src/lib/server/ai.ts', { fetch: async () => ({ ok: false, status: 401, json: async () => ({ error: { message: 'sensitive provider details' } }) }) })
   try { await isolated.providerFetch('https://example.com', {}) } catch (e) { assert.equal(await isolated.failure(e).text(), '{"error":"provider_auth_failed"}') }
@@ -57,7 +32,7 @@ test('Provider failures distinguish credentials, credit, quota and model without
   for (const [status, message, code] of [[400,'API key not valid. SECRET','provider_auth_failed'],[400,'Your credit balance is too low. SECRET','provider_billing'],[429,'Quota exceeded. Check plan and billing details. SECRET','provider_busy'],[404,'SECRET','provider_model_unavailable']]) {
     const logs=[]
     const isolated=load('src/lib/server/ai.ts', {console: {error: (...args)=>logs.push(args.join(' '))},fetch:async()=>({ok:false,status,json:async()=>({error:{message}})})})
-    await assert.rejects(isolated.providerFetch('https://api.anthropic.com/v1/messages',{}),e=>e.code===code)
+    await assert.rejects(isolated.providerFetch('https://generativelanguage.googleapis.com/v1beta/models/test:generateContent',{}),e=>e.code===code)
     assert.equal(logs.join('').includes('SECRET'),false)
     assert.ok(logs.join('').includes(code))
   }
@@ -68,10 +43,7 @@ test('Final JSON tolerates narration and fenced output but rejects ambiguity and
  assert.equal(ai.parseResult('{"wineName":"Braces {quoted} and \\"escape\\""}').wineName,'Braces {quoted} and "escape"')
  for(const text of ['{} {}','{"wineName":"cut off"','[]'])assert.throws(()=>ai.parseResult(text))
 })
-test('Sommelier parses the final response after a separate search narration block',async()=>{
- const data=responseData();data.content.unshift({type:'text',text:'I will check the producer and Japanese retailers.'})
- assert.equal((await route(data).POST(request(image))).status,200)
-})
+
 test('Label scan uses a bounded extraction model and validates the structured response',async()=>{
  let captured
  const mocked={...ai,authorize:async()=>({}),reserveUsage:async()=>{},providerFetch:async(url,init)=>{captured={url,body:JSON.parse(init.body)};return{candidates:[{finishReason:'STOP',content:{parts:[{text:JSON.stringify({labelText:'Chateau Margaux 2015',wineName:'Chateau Margaux',producer:'Chateau Margaux',vintage:'2015',wineType:'red'})}]}}]}}}
@@ -83,14 +55,7 @@ test('Label scan uses a bounded extraction model and validates the structured re
  assert.equal(captured.body.generationConfig.maxOutputTokens,1600)
 })
 
-test('Citation-segmented text is reassembled without inserting newlines inside JSON strings',async()=>{
- const json=JSON.stringify({...valid,description:'Producer details and quoted source'})
- const split=json.indexOf('Producer details')+8
- const data=responseData()
- data.content.splice(1,1,{type:'text',text:'Research complete. '+json.slice(0,split),citations:[{type:'web_search_result_location'}]},{type:'text',text:json.slice(split)})
- const response=await route(data).POST(request(image));assert.equal(response.status,200)
- assert.equal((await response.json()).result.description,'Producer details and quoted source')
-})
+
 test('Unreadable labels do not trigger a paid retry',async()=>{
  for(const code of ['label_unreadable','invalid_ai_result','analysis_failed']){
   let calls=0
@@ -99,26 +64,9 @@ test('Unreadable labels do not trigger a paid retry',async()=>{
   assert.equal((await handler.POST(request(image))).status,502);assert.equal(calls,1)
  }
 })
-test('Sommelier conversation is accepted only with an observed source and stays within the existing call',async()=>{
- const data=responseData({...valid,sommelierComment:'果実味が魅力の一本ですね。',sommelierCommentSource:'https://example.com/wine'})
- const response=await route(data).POST(request(image))
- const {result}=await response.json()
- assert.equal(result.sommelierCommentSource,'https://example.com/wine')
- assert.equal(result.sommelierComment,'果実味が魅力の一本ですね。')
- assert.equal(result.drinkingWindow,undefined)
-})
 
-test('Sommelier uses bounded Haiku searches and bounded evidence fetching without premium retry',async()=>{
- let calls=0
- const handler=route(responseData(),{providerFetch:async(url,init)=>{
-  calls++;const body=JSON.parse(init.body)
-  assert.equal(body.model,'claude-haiku-4-5-20251001')
-  assert.equal(body.tools.length,2);assert.equal(body.tools[0].max_uses,2)
-  assert.equal(body.max_tokens,2400)
-  return responseData()
- }})
- assert.equal((await handler.POST(request(image))).status,200);assert.equal(calls,1)
-})
+
+
 
 test('Gemini errors never invoke Anthropic, even when its key is configured',async()=>{
  for(const code of ['provider_busy','provider_billing','provider_timeout','provider_unavailable','provider_auth_failed','provider_model_unavailable']){
@@ -142,17 +90,7 @@ test('Provider citation markup is not shown as wine description text',()=>{
  assert.equal(result.description,'Wine description')
 })
 
-test('Sommelier grapes and blend require fetched evidence, never fermentation percentages',async()=>{
- const source='https://example.com/wine',doc='Example wine Example producer 2020. Varieties: Merlot. Blend: 100% Merlot. Fermentation: 95% stainless steel, 5% oak.'
- for(const [blend,expected] of [['100% Merlot','100% Merlot'],['95% stainless steel, 5% oak',null]]){
-  const data=responseData({...valid,grapeVariety:'Merlot',grapeSource:source,grapeEvidence:'Varieties: Merlot.',blendRatio:blend,blendSource:source})
-  data.content.push({type:'web_fetch_tool_result',content:{url:source,content:{source:{type:'text',data:doc}}}})
-  const result=(await (await route(data).POST(request(image))).json()).result
-  assert.equal(result.grapeVariety,'Merlot');assert.equal(result.blendRatio,expected)
- }
- const r=(await (await route(responseData({...valid,grapeVariety:'Invented grape'})).POST(request(image))).json()).result
- assert.equal(r.grapeVariety,null)
-})
+
 
 test('Latency diagnostics distinguish waiting for headers from a stalled response body without leaking data',async()=>{
  for(const stage of ['waiting_headers','reading_body']){
