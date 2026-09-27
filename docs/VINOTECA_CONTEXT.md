@@ -4,7 +4,7 @@
 
 ### 2026-09-22 최신 우선 기록
 
-운영은 PR12 배포 완료 v1.4.1(main d4f7d1a). 이전 절의 PR12 미배포/Claude fallback 설명은 과거 기록이다. 현재 작업 v1.4.2는 소믈리에도 Gemini3.5 Flash-Lite 단일 호출로 전환, 앱 Anthropic 공통 차단, 상세 스타일·개인 실제 평가 기록 비교·페어링·온도·수동 정보보완을 추가했다. 운영 미반영이며 Preview 검증 중. 별도 유료 Gemini 검색 프로젝트 생성은 Google의 suspicious request 거절로 사용자가 직접 생성해야 한다. 기존 무료 프로젝트/키는 유지. 상세 최신사항은 SOMMELIER_GEMINI_REDESIGN.md 및 AI_MODELS_AND_COSTS.md를 우선한다.
+운영은 PR13 배포 완료 v1.4.2(main c3ee202). 테이스팅·소믈리에 모두 Gemini3.5 Flash-Lite 단일 호출, 앱 Anthropic 공통 차단. 상세 스타일·실제 평가 기록 비교·페어링·온도·수동 정보보완을 추가했다. 84개 테스트 및 빌드, 병합 후 main CI 통과. 운영 화면 버전·기존 기록3건·소믈리에 활성화·월20회 상한 확인. 별도 `Vinoteca Search Test` 프로젝트(gen-lang-client-0651782564)는 사용자 생성 완료, 아직 무료 등급이며 결제 설정은 사용자 입력 대기. 기존 무료 프로젝트/키 유지, 유료 검색 운영 미사용. 아래 날짜별 구현 설명은 과거 기록이다. 최신 모델·비용은 AI_MODELS_AND_COSTS.md를 우선한다.
 
 ### 2026-09-21 현재 작업 우선 기록
 

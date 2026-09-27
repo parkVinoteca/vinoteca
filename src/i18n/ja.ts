@@ -141,6 +141,9 @@ export const ja = {
     sparkling: 'スパークリング',
   },
   rating: {
+    levels: ['満足できない', 'まずまず', '良い', 'とても良い', '素晴らしい'],
+    low: '1.0 満足できない',
+    high: '5.0 素晴らしい一本',
     "title": "自分の評価",
     "unrated": "未評価",
     "decrease": "評価を0.1下げる",

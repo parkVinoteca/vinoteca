@@ -100,7 +100,7 @@ export default function TastingSheet({ lang, user, onBack, blindSessionId, blind
   const [saved, setSaved] = useState(false)
   const [entryMode, setEntryMode] = useState<'simple' | 'expert'>(blindSessionId ? 'expert' : 'simple')
   const [monthlyUsage, setMonthlyUsage] = useState(0)
-  const [monthlyLimit, setMonthlyLimit] = useState<number | null>(10)
+  const [monthlyLimit, setMonthlyLimit] = useState<number | null>(null)
 
   // Wine Info
   const [wineName, setWineName] = useState('')
@@ -204,13 +204,13 @@ export default function TastingSheet({ lang, user, onBack, blindSessionId, blind
       const tokyoMonth = new Date().toLocaleDateString('sv-SE', { timeZone: 'Asia/Tokyo' }).slice(0, 7)
       const start = new Date(`${tokyoMonth}-01T00:00:00+09:00`).toISOString()
       const [{ count }, { data: profile }] = await Promise.all([
-        supabase.from('ai_usage_logs').select('*', { count: 'exact', head: true }).eq('user_id', user.id).eq('feature', 'tasting_sheet').gte('created_at', start),
+        supabase.from('ai_usage_logs').select('*', { count: 'exact', head: true }).eq('user_id', user.id).eq('feature', 'label_scan').gte('created_at', start),
         supabase.from('profiles').select('plan').eq('id', user.id).maybeSingle(),
       ])
       const plan = profile?.plan || 'free'
-      const { data: limits } = await supabase.from('subscription_limits').select('tasting_monthly_limit').eq('plan', plan).maybeSingle()
+      const { data: limits } = await supabase.from('subscription_limits').select('label_monthly_limit').eq('plan', plan).maybeSingle()
       setMonthlyUsage(count || 0)
-      setMonthlyLimit(limits?.tasting_monthly_limit ?? (plan === 'paid' ? null : 10))
+      setMonthlyLimit(limits?.label_monthly_limit ?? null)
     }
     loadUsage().catch(() => {})
   }, [user.id])
@@ -265,7 +265,8 @@ export default function TastingSheet({ lang, user, onBack, blindSessionId, blind
       if (error) throw new Error(lang === 'ja' ? '写真を保存できませんでした。再度お試しください。' : '사진을 저장하지 못했습니다. 다시 시도해주세요.')
       setLabelPath(fileName)
       setLabelImageUrl(`data:${image.mediaType};base64,${image.base64}`)
-      if (!isBlind) {
+      if (!isBlind && monthlyLimit !== null && monthlyUsage < monthlyLimit) {
+        setMonthlyUsage(n => n + 1)
         setAnalysisStage('analyze')
         const info = await analyzeImage('label', image, lang, controller.signal)
         if (controller.signal.aborted) return
@@ -388,7 +389,7 @@ export default function TastingSheet({ lang, user, onBack, blindSessionId, blind
 
   return (
     <div className="max-w-lg mx-auto">
-      {analyzing && <AnalysisProgress imageUrl={labelImageUrl} lang={lang} stage={analysisStage} mode={isBlind ? 'upload' : 'label'} onCancel={cancelAnalysis} />}
+      {analyzing && <AnalysisProgress imageUrl={labelImageUrl} lang={lang} stage={analysisStage} mode={isBlind || analysisStage === 'upload' ? 'upload' : 'label'} onCancel={cancelAnalysis} />}
       {message && <p role="alert" className="card p-3 mb-3 text-sm">{message}</p>}
       {cropFile && <ImageCropModal file={cropFile} lang={lang} onCancel={() => setCropFile(null)} onConfirm={savePhoto} />}
       {/* Header */}
@@ -403,7 +404,8 @@ export default function TastingSheet({ lang, user, onBack, blindSessionId, blind
       <div className="p-4 pb-28 space-y-6">
 
         <div className={`rounded-lg border px-3 py-2 text-sm ${monthlyLimit !== null && monthlyUsage >= monthlyLimit - 2 ? 'border-gold-500 bg-gold-50 text-gold-800' : 'border-cave-400 bg-white text-cave-50'}`}>
-          {lang === 'ja' ? '今月の作成回数' : '이번 달 작성 횟수'}: {monthlyUsage} / {monthlyLimit ?? (lang === 'ja' ? '無制限' : '무제한')}
+          {lang === 'ja' ? '今月のテイスティングAI' : '이번 달 테이스팅 AI'}: {monthlyUsage} / {monthlyLimit ?? '—'}
+          <p className="mt-1 text-xs">{lang === 'ja' ? '写真の保存・手入力はいつでも使えます。AI利用枠がない場合はワイン情報を入力してください。' : '사진 저장·직접 입력은 언제든 가능합니다. AI 사용 가능 횟수가 없으면 와인 정보를 직접 입력해주세요.'}</p>
         </div>
 
         {/* Label Photo */}

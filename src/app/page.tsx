@@ -9,10 +9,11 @@ import BlindMode from '@/components/BlindMode'
 import MyCellar from '@/components/MyCellar'
 import AIRecommend from '@/components/AIRecommend'
 import RecoverPassword from '@/components/RecoverPassword'
+import Membership from '@/components/Membership'
 import AuthScreen from '@/components/AuthScreen'
 import type { User } from '@supabase/supabase-js'
 
-export type Screen = 'home' | 'tasting' | 'blind' | 'cellar' | 'recommend'
+export type Screen = 'home' | 'tasting' | 'blind' | 'cellar' | 'recommend' | 'account'
 
 export default function App() {
   const [user, setUser] = useState<User | null>(null)
@@ -71,6 +72,7 @@ export default function App() {
           Vinoteca <span className="text-xs font-sans not-italic">v{APP_VERSION}</span>
         </button>
         <div className="flex items-center gap-3">
+          <button className="text-xs min-h-11" onClick={() => setScreen('account')}>{lang === 'ja' ? 'マイページ' : '마이페이지'}</button>
           <button
             onClick={() => setLang(lang === 'ja' ? 'ko' : 'ja')}
             className="text-xs border border-gold-700/40 text-gold-700 px-2 py-1 rounded-full hover:bg-gold-900/20 hover:border-gold-500/60 transition-colors"
@@ -88,6 +90,7 @@ export default function App() {
 
       {/* Main Content */}
       <main className="flex-1 pb-20">
+        {screen === 'account' && <Membership lang={lang} />}
         {screen === 'home' && <HomeScreen lang={lang} user={user} onNavigate={setScreen} />}
         {screen === 'tasting' && <TastingSheet lang={lang} user={user} onBack={() => setScreen('home')} />}
         {screen === 'blind' && <BlindMode lang={lang} user={user} onBack={() => setScreen('home')} />}

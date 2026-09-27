@@ -141,6 +141,9 @@ export const ko = {
     sparkling: '스파클링',
   },
   rating: {
+    levels: ['만족스럽지 않음', '보통', '좋음', '매우 좋음', '탁월함'],
+    low: '1.0 만족스럽지 않음',
+    high: '5.0 탁월한 한 병',
     "title": "나의 평점",
     "unrated": "미평가",
     "decrease": "평점 0.1 낮추기",

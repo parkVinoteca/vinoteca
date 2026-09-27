@@ -37,7 +37,7 @@ export type Database = {
         Relationships: []
       }
       subscription_limits: {
-        Row: { plan: 'free' | 'paid'; tasting_monthly_limit: number | null; sommelier_monthly_limit: number }
+        Row: { plan: 'free' | 'paid'; label_monthly_limit: number; tasting_monthly_limit: number | null; sommelier_monthly_limit: number }
         Insert: never
         Update: never
         Relationships: []

@@ -1,6 +1,6 @@
 # Gemini 중심 소믈리에 — 2026-09-22
 
-상태: v1.4.2 수정본, 운영 미반영. 실제 검증 결과는 아래에 추가한다.
+상태: 2026-09-22 PR13 main 병합(c3ee202), v1.4.2 운영 배포 및 화면 확인 완료. 실제 검증 결과는 아래에 기록한다.
 
 ## 이번 판단
 
@@ -27,7 +27,7 @@
 
 - 현재 개인 프로젝트 `gen-lang-client-0193098423` 무료 티어 확인. 기존 회사 프로젝트들은 Tier1 선불·크레딧 없음 표시. 회사 도메인이 Gemini API 사용을 막는다는 증거가 아니다.
 - 기존 무료 프로젝트를 유료로 업그레이드하면 그 프로젝트 호출 과금 조건이 바뀐다. 무료 프로젝트는 결제에 연결하지 않고, 별도 유료 시험 프로젝트/키를 만들 계획이다. 유료 티어·한도는 연결 결제 계정 기준이며 동일 결제 계정에 연결된 프로젝트들은 잔액 고갈 영향을 공유한다.
-- Google AI Studio에서 개인 계정의 `Vinoteca Search Test` 생성 시 Google이 suspicious request로 거절. 사용자 직접 생성 요청. 결제·키 생성·저장은 하지 않았으며 무료 프로젝트 변경 없음.
+- 사용자가 `Vinoteca Search Test` (gen-lang-client-0651782564)를 생성 완료. 무료 등급·키1개 존재만 확인, 값은 읽지 않았다. 정확한 새 프로젝트를 선택한 결제 설정 화면을 준비했고 사용자 직접 입력 대기. 기존 무료 프로젝트와 앱 키 변경 없음. 유료 검색 실측은 아직 하지 않았다.
 - 신규 선불 설정 최소$5 상당 충전. 자동충전은 이번 시험 범위에 포함하지 않는다. 사용자 직접 결제/키 입력 후 **Preview 전용** `GEMINI_SEARCH_API_KEY`로 시험할 예정이며 기존 `GEMINI_API_KEY`를 덮어쓰지 않는다. 현재 키도, 활성 검색 경로도 추가하지 않았다.
 - 공식 [결제 설명](https://ai.google.dev/gemini-api/docs/billing), [가격표](https://ai.google.dev/gemini-api/docs/pricing), [Google 검색](https://ai.google.dev/gemini-api/docs/google-search).
 
