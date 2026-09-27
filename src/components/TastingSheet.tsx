@@ -397,7 +397,7 @@ export default function TastingSheet({ lang, user, onBack, blindSessionId, blind
 
   const labelEditor = <div className="space-y-5">
         <div className={`rounded-lg border px-3 py-2 text-sm ${monthlyLimit !== null && monthlyUsage >= monthlyLimit - 2 ? 'border-gold-500 bg-gold-50 text-gold-800' : 'border-cave-400 bg-white text-cave-50'}`}>
-          {lang === 'ja' ? '今月のテイスティングAI' : '이번 달 테이스팅 AI'}: {monthlyUsage} / {monthlyLimit ?? '—'}
+          {lang === 'ja' ? 'AI情報入力 今月の使用量' : 'AI 정보 입력 이번 달 사용량'}: {monthlyUsage} / {monthlyLimit ?? '—'}
           <p className="mt-1 text-xs">{lang === 'ja' ? '写真の保存・手入力はいつでも使えます。AI利用枠がない場合はワイン情報を入力してください。' : '사진 저장·직접 입력은 언제든 가능합니다. AI 사용 가능 횟수가 없으면 와인 정보를 직접 입력해주세요.'}</p>
         </div>
 
