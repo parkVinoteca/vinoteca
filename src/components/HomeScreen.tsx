@@ -1,4 +1,5 @@
 'use client'
+import { countryKey, countryLabel } from '@/lib/countries'
 import AppIcon from './AppIcon'
 import { useState, useEffect } from 'react'
 import { personalRating, formatRating } from '@/lib/ratings'
@@ -44,7 +45,7 @@ export default function HomeScreen({ lang, user, onNavigate }: Props) {
         : 0
 
       const countryCounts: Record<string, number> = {}
-      all.forEach(d => { if (d.country) countryCounts[d.country] = (countryCounts[d.country] || 0) + 1 })
+      all.forEach(d => { if (d.country) countryCounts[countryKey(d.country)] = (countryCounts[countryKey(d.country)] || 0) + 1 })
       const topCountry = Object.entries(countryCounts).sort((a, b) => b[1] - a[1])[0]?.[0] || '-'
 
       setStats({
@@ -74,7 +75,7 @@ export default function HomeScreen({ lang, user, onNavigate }: Props) {
         {[
           { label: lang === 'ja' ? '記録数' : '기록 수', value: `${stats.total}${lang === 'ja' ? '本' : '병'}`, icon: 'wine' as const },
           { label: lang === 'ja' ? '平均スコア' : '평균 점수', value: stats.avgScore ? `${stats.avgScore.toFixed(1)} / 5` : '—', icon: 'star' as const },
-          { label: lang === 'ja' ? 'よく飲む国' : '자주 마시는 나라', value: stats.topCountry, icon: 'globe' as const },
+          { label: lang === 'ja' ? 'よく飲む国' : '자주 마시는 나라', value: countryLabel(stats.topCountry, lang), icon: 'globe' as const },
           { label: lang === 'ja' ? '最近のワイン' : '최근 와인', value: stats.recentWine.length > 10 ? stats.recentWine.slice(0, 10) + '...' : stats.recentWine, icon: 'tasting' as const },
         ].map((s, i) => (
           <div key={i} className="card p-4">
@@ -148,7 +149,7 @@ export default function HomeScreen({ lang, user, onNavigate }: Props) {
                   </div>
                   <div className="text-xs text-cave-100">
                     {tasting.vintage && `${tasting.vintage} · `}
-                    {tasting.country || tasting.region || ''}
+                    {countryLabel(tasting.country, lang) || tasting.region || ''}
                   </div>
                   <div className="text-xs text-cave-100">
                     {new Date(tasting.created_at).toLocaleDateString(lang === 'ja' ? 'ja-JP' : 'ko-KR')}

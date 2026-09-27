@@ -1,4 +1,5 @@
 'use client'
+import { countryKey, countryLabel } from '@/lib/countries'
 import AppIcon from './AppIcon'
 import CriticScores from './CriticScores'
 import { useState, useEffect } from 'react'
@@ -28,7 +29,7 @@ export default function MyCellar({ lang, user, onBack }: Props) {
 
   useEffect(() => {
     let data = [...tastings]
-    if (filterCountry) data = data.filter(d => d.country === filterCountry)
+    if (filterCountry) data = data.filter(d => countryKey(d.country) === filterCountry)
     if (filterGrape) data = data.filter(d => d.grape_variety?.includes(filterGrape))
     if (filterType) data = data.filter(d => d.wine_type === filterType)
     if (sortBy === 'score') data.sort((a, b) => (personalRating(b) ?? 0) - (personalRating(a) ?? 0))
@@ -47,7 +48,7 @@ export default function MyCellar({ lang, user, onBack }: Props) {
     if (data) {
       const resolved = await Promise.all(data.map(async row => ({ ...row, image_url: await resolveLabelImage(row.label_image_url, user.id) })))
       setTastings(resolved)
-      setCountries([...new Set(data.map(d => d.country).filter(Boolean))] as string[])
+      setCountries([...new Set(data.map(d => countryKey(d.country)).filter(Boolean))] as string[])
       setGrapes([...new Set(data.map(d => d.grape_variety).filter(Boolean))] as string[])
     }
     setLoading(false)
@@ -85,7 +86,7 @@ export default function MyCellar({ lang, user, onBack }: Props) {
             <div className="flex flex-wrap gap-2 text-xs text-cave-100">
               {selected.vintage && <span className="bg-cave-600/50 px-2 py-0.5">{selected.vintage}</span>}
               {selected.region && <span className="bg-cave-600/50 px-2 py-0.5">{selected.region}</span>}
-              {selected.country && <span className="bg-cave-600/50 px-2 py-0.5">{selected.country}</span>}
+              {selected.country && <span className="bg-cave-600/50 px-2 py-0.5">{countryLabel(selected.country, lang)}</span>}
               {selected.grape_variety && <span className="bg-cave-600/50 px-2 py-0.5">{selected.grape_variety}</span>}
             </div>
           </div>
@@ -171,7 +172,7 @@ export default function MyCellar({ lang, user, onBack }: Props) {
         <div className="flex gap-2">
           <select value={filterCountry} onChange={e => setFilterCountry(e.target.value)} className="flex-1 text-xs border border-cave-400/30 p-1.5 bg-cave-600/40 text-cave-50">
             <option value="">{t.cellar.all} {t.cellar.country}</option>
-            {countries.map(c => <option key={c} value={c}>{c}</option>)}
+            {countries.map(c => <option key={c} value={c}>{countryLabel(c, lang)}</option>)}
           </select>
           <select value={filterType} onChange={e => setFilterType(e.target.value)} className="flex-1 text-xs border border-cave-400/30 p-1.5 bg-cave-600/40 text-cave-50">
             <option value="">{t.cellar.all} {t.cellar.type}</option>
@@ -209,7 +210,7 @@ export default function MyCellar({ lang, user, onBack }: Props) {
                   {tasting.wine_name || tasting.answer_wine || tasting.producer || tasting.answer_producer || (lang === 'ja' ? '名称未設定' : '이름 없음')}
                 </div>
                 <div className="text-xs text-cave-100 truncate">
-                  {[tasting.vintage, tasting.region, tasting.country].filter(Boolean).join(' · ')}
+                  {[tasting.vintage, tasting.region, countryLabel(tasting.country, lang)].filter(Boolean).join(' · ')}
                 </div>
                 <div className="text-xs text-cave-200">
                   {new Date(tasting.created_at).toLocaleDateString(lang === 'ja' ? 'ja-JP' : 'ko-KR')}
