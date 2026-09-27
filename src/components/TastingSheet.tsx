@@ -99,6 +99,7 @@ export default function TastingSheet({ lang, user, onBack, blindSessionId, blind
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
   const [entryMode, setEntryMode] = useState<'simple' | 'expert'>(blindSessionId ? 'expert' : 'simple')
+  const [useLabelAI, setUseLabelAI] = useState(true)
   const [monthlyUsage, setMonthlyUsage] = useState(0)
   const [monthlyLimit, setMonthlyLimit] = useState<number | null>(null)
 
@@ -215,6 +216,9 @@ export default function TastingSheet({ lang, user, onBack, blindSessionId, blind
     loadUsage().catch(() => {})
   }, [user.id])
 
+  const labelAIAvailable = monthlyLimit !== null && monthlyUsage < monthlyLimit
+  const labelAIEnabled = !isBlind && useLabelAI && labelAIAvailable
+
   const changeEntryMode = (mode: 'simple' | 'expert') => {
     setEntryMode(mode)
     localStorage.setItem('vinoteca:tasting-mode', mode)
@@ -245,10 +249,11 @@ export default function TastingSheet({ lang, user, onBack, blindSessionId, blind
     setLabelImageUrl(`data:${image.mediaType};base64,${image.base64}`)
     setCriticScores([])
     setResearchedIdentity('')
+    setResearchedFacts('')
     setGrapeResearch(null)
     setWineResearch(null)
     setGrapeEdited(false)
-    if (!isBlind) {
+    if (labelAIEnabled) {
       // A failed replacement scan must not leave the previous bottle's facts
       // attached to the newly uploaded photograph.
       setWineName(''); setProducer(''); setVintage(''); setRegion(''); setCountry(''); setGrapeVariety('')
@@ -265,7 +270,7 @@ export default function TastingSheet({ lang, user, onBack, blindSessionId, blind
       if (error) throw new Error(lang === 'ja' ? '写真を保存できませんでした。再度お試しください。' : '사진을 저장하지 못했습니다. 다시 시도해주세요.')
       setLabelPath(fileName)
       setLabelImageUrl(`data:${image.mediaType};base64,${image.base64}`)
-      if (!isBlind && monthlyLimit !== null && monthlyUsage < monthlyLimit) {
+      if (labelAIEnabled) {
         setMonthlyUsage(n => n + 1)
         setAnalysisStage('analyze')
         const info = await analyzeImage('label', image, lang, controller.signal)
@@ -407,6 +412,21 @@ export default function TastingSheet({ lang, user, onBack, blindSessionId, blind
           {lang === 'ja' ? '今月のテイスティングAI' : '이번 달 테이스팅 AI'}: {monthlyUsage} / {monthlyLimit ?? '—'}
           <p className="mt-1 text-xs">{lang === 'ja' ? '写真の保存・手入力はいつでも使えます。AI利用枠がない場合はワイン情報を入力してください。' : '사진 저장·직접 입력은 언제든 가능합니다. AI 사용 가능 횟수가 없으면 와인 정보를 직접 입력해주세요.'}</p>
         </div>
+
+        {!isBlind && <div className="rounded-xl border border-cave-400 bg-white p-3">
+          <button type="button" role="switch" aria-checked={labelAIEnabled} aria-describedby="label-ai-help"
+            disabled={analyzing || !labelAIAvailable} onClick={() => setUseLabelAI(value => !value)}
+            className="flex min-h-11 w-full items-center justify-between gap-3 text-left disabled:opacity-60">
+            <span className="text-sm font-medium">{t.labelAI.title}</span>
+            <span aria-hidden="true" className="flex items-center gap-2 text-xs">
+              {labelAIEnabled ? 'ON' : 'OFF'}
+              <span className={`relative h-6 w-11 rounded-full transition-colors ${labelAIEnabled ? 'bg-gold-700' : 'bg-gray-300'}`}>
+                <span className={`absolute left-0 top-1 h-4 w-4 rounded-full bg-white transition-transform ${labelAIEnabled ? 'translate-x-6' : 'translate-x-1'}`} />
+              </span>
+            </span>
+          </button>
+          <p id="label-ai-help" className="mt-1 text-xs leading-relaxed text-cave-100">{monthlyLimit === null ? t.labelAI.loading : !labelAIAvailable ? t.labelAI.unavailable : labelAIEnabled ? t.labelAI.on : t.labelAI.off}</p>
+        </div>}
 
         {/* Label Photo */}
         <div>
