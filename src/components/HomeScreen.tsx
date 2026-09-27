@@ -1,4 +1,5 @@
 'use client'
+import AppIcon from './AppIcon'
 import { useState, useEffect } from 'react'
 import { personalRating, formatRating } from '@/lib/ratings'
 import { supabase } from '@/lib/supabase'
@@ -71,13 +72,13 @@ export default function HomeScreen({ lang, user, onNavigate }: Props) {
       {/* Stats Grid */}
       <div className="grid grid-cols-2 gap-3 mb-6">
         {[
-          { label: lang === 'ja' ? '記録数' : '기록 수', value: `${stats.total}${lang === 'ja' ? '本' : '병'}`, icon: '🍷' },
-          { label: lang === 'ja' ? '平均スコア' : '평균 점수', value: stats.avgScore ? `${stats.avgScore.toFixed(1)} / 5` : '—', icon: '⭐' },
-          { label: lang === 'ja' ? 'よく飲む国' : '자주 마시는 나라', value: stats.topCountry, icon: '🌍' },
-          { label: lang === 'ja' ? '最近のワイン' : '최근 와인', value: stats.recentWine.length > 10 ? stats.recentWine.slice(0, 10) + '...' : stats.recentWine, icon: '📝' },
+          { label: lang === 'ja' ? '記録数' : '기록 수', value: `${stats.total}${lang === 'ja' ? '本' : '병'}`, icon: 'wine' as const },
+          { label: lang === 'ja' ? '平均スコア' : '평균 점수', value: stats.avgScore ? `${stats.avgScore.toFixed(1)} / 5` : '—', icon: 'star' as const },
+          { label: lang === 'ja' ? 'よく飲む国' : '자주 마시는 나라', value: stats.topCountry, icon: 'globe' as const },
+          { label: lang === 'ja' ? '最近のワイン' : '최근 와인', value: stats.recentWine.length > 10 ? stats.recentWine.slice(0, 10) + '...' : stats.recentWine, icon: 'tasting' as const },
         ].map((s, i) => (
           <div key={i} className="card p-4">
-            <div className="text-2xl mb-1">{s.icon}</div>
+            <AppIcon name={s.icon} className="mx-auto mb-1 h-6 w-6"/>
             <div className="text-xs text-cave-100 mb-0.5">{s.label}</div>
             <div className="font-medium text-gold-700 text-sm">{s.value}</div>
           </div>
@@ -92,7 +93,7 @@ export default function HomeScreen({ lang, user, onNavigate }: Props) {
             onClick={() => onNavigate('tasting')}
             className="w-full card p-4 flex items-center gap-4 hover:bg-gold-900/20 transition-colors text-left"
           >
-            <span className="text-2xl">📝</span>
+            <AppIcon name="tasting" className="h-7 w-7"/>
             <div>
               <div className="font-medium text-sm text-gold-700">{t.tasting.normal}</div>
               <div className="text-xs text-cave-100">{lang === 'ja' ? 'ラベルを撮影して記録' : '라벨을 찍어 기록'}</div>
@@ -103,7 +104,7 @@ export default function HomeScreen({ lang, user, onNavigate }: Props) {
             onClick={() => onNavigate('blind')}
             className="w-full card p-4 flex items-center gap-4 hover:bg-gold-900/20 transition-colors text-left"
           >
-            <span className="text-2xl">🎭</span>
+            <AppIcon name="blind" className="h-7 w-7"/>
             <div>
               <div className="font-medium text-sm text-gold-700">{t.tasting.blind}</div>
               <div className="text-xs text-cave-100">{lang === 'ja' ? 'グループセッションを開始' : '그룹 세션 시작'}</div>
@@ -114,7 +115,7 @@ export default function HomeScreen({ lang, user, onNavigate }: Props) {
             onClick={() => onNavigate('recommend')}
             className="w-full card p-4 flex items-center gap-4 hover:bg-gold-900/20 transition-colors text-left"
           >
-            <span className="text-2xl">🤖</span>
+            <AppIcon name="recommend" className="h-7 w-7"/>
             <div>
               <div className="font-medium text-sm text-gold-700">{t.recommend.title}</div>
               <div className="text-xs text-cave-100">{lang === 'ja' ? '写真でワインを解析' : '사진으로 와인 분석'}</div>
@@ -139,7 +140,7 @@ export default function HomeScreen({ lang, user, onNavigate }: Props) {
                 {tasting.image_url ? (
                   <img src={tasting.image_url} alt="" className="w-10 h-14 object-cover" />
                 ) : (
-                  <div className="w-10 h-14 bg-cave-500/40 flex items-center justify-center text-gold-500/60 text-xl">🍷</div>
+                  <div className="w-10 h-14 bg-cave-500/40 flex items-center justify-center text-gold-500/60 text-xl"><AppIcon name="wine"/></div>
                 )}
                 <div className="flex-1 min-w-0">
                   <div className="font-medium text-sm text-ink truncate">
@@ -164,7 +165,7 @@ export default function HomeScreen({ lang, user, onNavigate }: Props) {
 
       {recentTastings.length === 0 && (
         <div className="text-center py-12 text-cave-100">
-          <div className="text-4xl mb-3">🍷</div>
+          <AppIcon name="wine" className="mx-auto mb-3 h-10 w-10"/>
           <div className="text-sm">{lang === 'ja' ? 'まだ記録がありません' : '아직 기록이 없습니다'}</div>
           <div className="text-xs mt-1">{lang === 'ja' ? '最初のテイスティングを記録しましょう' : '첫 번째 테이스팅을 기록해보세요'}</div>
         </div>

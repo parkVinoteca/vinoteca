@@ -1,4 +1,5 @@
 'use client'
+import AppIcon from './AppIcon'
 import { useState, useEffect, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
 import { translations, Language } from '@/i18n'
@@ -172,7 +173,7 @@ export default function BlindMode({ lang, user, onBack }: Props) {
 
       {sessions.length === 0 ? (
         <div className="text-center py-16 text-cave-100">
-          <div className="text-4xl mb-3">🎭</div>
+          <AppIcon name="blind" className="mx-auto mb-3 h-10 w-10"/>
           <div className="text-sm">{lang === 'ja' ? 'セッションがありません' : '세션이 없습니다'}</div>
           <button onClick={() => setView('new')} className="mt-4 btn-secondary py-2 px-6 text-xs">
             {t.blind.newSession}

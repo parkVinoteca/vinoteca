@@ -62,6 +62,16 @@ test('Fresh schema, migration, owner RLS, private storage and atomic AI quotas',
     }
     assert.equal((await db.query("select public.reserve_ai_usage('sommelier') as allowed")).rows[0].allowed,false)
     await db.exec('reset role')
+    // Blind answers live in the same tasting row alongside original observations.
+    await db.exec(`insert into public.blind_sessions(id,user_id,title,wine_count) values ('00000000-0000-0000-0000-000000000003','00000000-0000-0000-0000-000000000002','Blind',1);
+      insert into public.tastings(user_id,mode,blind_session_id,blind_wine_number,wine_name,producer,answer_wine,answer_producer,stars,aromas,deduction_grape)
+      values ('00000000-0000-0000-0000-000000000002','blind','00000000-0000-0000-0000-000000000003',1,'Chablis','Domaine','Chablis','Domaine',3.7,ARRAY['lemon'],'Riesling');`)
+    const blindRows = (await db.query("select * from public.tastings where blind_session_id='00000000-0000-0000-0000-000000000003'")).rows
+    assert.equal(blindRows.length,1)
+    assert.equal(blindRows[0].wine_name,'Chablis')
+    assert.equal(Number(blindRows[0].stars),3.7)
+    assert.deepEqual(blindRows[0].aromas,['lemon'])
+    assert.equal(blindRows[0].deduction_grape,'Riesling')
     // AI-only caps: 50th scan allowed, 51st blocked; manual notes remain writable.
     await db.exec("delete from public.ai_usage_logs where user_id='00000000-0000-0000-0000-000000000002'; insert into public.ai_usage_logs(user_id,feature,created_at) select '00000000-0000-0000-0000-000000000002','label_scan',now()-interval '1 minute' from generate_series(1,49); set role authenticated;")
     assert.equal((await db.query("select public.reserve_ai_usage('label_scan') as allowed")).rows[0].allowed,true)

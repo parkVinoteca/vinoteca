@@ -9,6 +9,7 @@ import BlindMode from '@/components/BlindMode'
 import MyCellar from '@/components/MyCellar'
 import AIRecommend from '@/components/AIRecommend'
 import RecoverPassword from '@/components/RecoverPassword'
+import AppIcon from '@/components/AppIcon'
 import Membership from '@/components/Membership'
 import AuthScreen from '@/components/AuthScreen'
 import type { User } from '@supabase/supabase-js'
@@ -101,11 +102,11 @@ export default function App() {
       {/* Bottom Navigation */}
       <nav className="fixed bottom-0 left-0 right-0 bg-cave-700/95 backdrop-blur-md border-t border-gold-900/30 flex z-50 shadow-[0_-4px_20px_rgba(0,0,0,0.4)]">
         {([
-          { id: 'home', icon: '🏠', label: t.nav.home },
-          { id: 'tasting', icon: '📝', label: t.nav.tasting },
-          { id: 'blind', icon: '🎭', label: t.nav.blind },
-          { id: 'cellar', icon: '📚', label: t.nav.cellar },
-          { id: 'recommend', icon: '🤖', label: t.nav.recommend },
+          { id: 'home', label: t.nav.home },
+          { id: 'tasting', label: t.nav.tasting },
+          { id: 'blind', label: t.nav.blind },
+          { id: 'cellar', label: t.nav.cellar },
+          { id: 'recommend', label: t.nav.recommend },
         ] as const).map(item => (
           <button
             key={item.id}
@@ -114,7 +115,7 @@ export default function App() {
               screen === item.id ? 'text-gold-700' : 'text-cave-200'
             }`}
           >
-            <span className="text-lg">{item.icon}</span>
+            <AppIcon name={item.id} className="h-6 w-6"/>
             <span className="text-xs tracking-wide">{item.label}</span>
           </button>
         ))}

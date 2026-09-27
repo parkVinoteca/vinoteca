@@ -1,4 +1,5 @@
 'use client'
+import AppIcon from './AppIcon'
 import CriticScores from './CriticScores'
 import { useState, useEffect } from 'react'
 import { personalRating, formatRating } from '@/lib/ratings'
@@ -79,7 +80,7 @@ export default function MyCellar({ lang, user, onBack }: Props) {
             <img src={selected.image_url} alt="" className="w-full max-h-64 object-contain bg-cave-600/30 mb-4" />
           )}
           <div className="card p-4 mb-4">
-            <div className="font-serif text-xl text-gold-700 mb-1">{selected.wine_name || selected.producer || '—'}</div>
+            <div className="font-serif text-xl text-gold-700 mb-1">{selected.wine_name || selected.answer_wine || selected.producer || selected.answer_producer || '—'}</div>
             {selected.producer && selected.wine_name && <div className="text-sm text-cave-100 mb-2">{selected.producer}</div>}
             <div className="flex flex-wrap gap-2 text-xs text-cave-100">
               {selected.vintage && <span className="bg-cave-600/50 px-2 py-0.5">{selected.vintage}</span>}
@@ -128,7 +129,7 @@ export default function MyCellar({ lang, user, onBack }: Props) {
           {/* Blind Results */}
           {selected.mode === 'blind' && (
             <div className="bg-gold-900/20 border border-gold-900/30 p-4">
-              <div className="text-xs font-medium text-gold-700 mb-3">🎭 {lang === 'ja' ? 'ブラインド結果' : '블라인드 결과'}</div>
+              <div className="text-xs font-medium text-gold-700 mb-3 flex items-center gap-2"><AppIcon name="blind"/> {lang === 'ja' ? 'ブラインド結果' : '블라인드 결과'}</div>
               <div className="grid grid-cols-2 gap-2 text-xs">
                 {[
                   [lang === 'ja' ? '予想タイプ' : '예상 타입', selected.deduction_type],
@@ -191,7 +192,7 @@ export default function MyCellar({ lang, user, onBack }: Props) {
         <div className="text-center py-12 text-cave-100 text-sm">{t.common.loading}</div>
       ) : filtered.length === 0 ? (
         <div className="text-center py-12 text-cave-100">
-          <div className="text-4xl mb-3">📚</div>
+          <AppIcon name="cellar" className="mx-auto mb-3 h-10 w-10"/>
           <div className="text-sm">{t.cellar.noData}</div>
         </div>
       ) : (
@@ -201,18 +202,18 @@ export default function MyCellar({ lang, user, onBack }: Props) {
               {tasting.image_url ? (
                 <img src={tasting.image_url} alt="" className="w-10 h-14 object-cover flex-shrink-0" />
               ) : (
-                <div className="w-10 h-14 bg-cave-500/40 flex items-center justify-center text-gold-500/50 flex-shrink-0">🍷</div>
+                <div className="w-10 h-14 bg-cave-500/40 flex items-center justify-center text-gold-500/50 flex-shrink-0"><AppIcon name="wine"/></div>
               )}
               <div className="flex-1 min-w-0">
                 <div className="font-medium text-sm text-ink truncate">
-                  {tasting.wine_name || tasting.producer || (lang === 'ja' ? '名称未設定' : '이름 없음')}
+                  {tasting.wine_name || tasting.answer_wine || tasting.producer || tasting.answer_producer || (lang === 'ja' ? '名称未設定' : '이름 없음')}
                 </div>
                 <div className="text-xs text-cave-100 truncate">
                   {[tasting.vintage, tasting.region, tasting.country].filter(Boolean).join(' · ')}
                 </div>
                 <div className="text-xs text-cave-200">
                   {new Date(tasting.created_at).toLocaleDateString(lang === 'ja' ? 'ja-JP' : 'ko-KR')}
-                  {tasting.mode === 'blind' && ` · 🎭`}
+                  {tasting.mode === 'blind' && (lang === 'ja' ? ' · ブラインド' : ' · 블라인드')}
                 </div>
               </div>
               {personalRating(tasting) !== null && (

@@ -1,4 +1,5 @@
 'use client'
+import AppIcon from './AppIcon'
 import { useState, useRef, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import { translations, Language } from '@/i18n'
@@ -127,12 +128,12 @@ export default function AIRecommend({ lang, user, onBack }: Props) {
       <div className="grid grid-cols-2 gap-3 mb-4">
         <button onClick={() => fileRef.current?.click()} disabled={unavailable}
           className="border-2 border-dashed border-gold-900/40 py-8 text-center text-cave-100 hover:border-gold-500/50 transition-colors rounded-lg disabled:opacity-50">
-          <div className="text-2xl mb-1">📷</div>
+          <AppIcon name="camera" className="mx-auto mb-1 h-6 w-6"/>
           <div className="text-xs">{lang === 'ja' ? '撮影' : '촬영'}</div>
         </button>
         <button onClick={() => uploadRef.current?.click()} disabled={unavailable}
           className="border-2 border-dashed border-gold-900/40 py-8 text-center text-cave-100 hover:border-gold-500/50 transition-colors rounded-lg disabled:opacity-50">
-          <div className="text-2xl mb-1">🖼️</div>
+          <AppIcon name="upload" className="mx-auto mb-1 h-6 w-6"/>
           <div className="text-xs">{lang === 'ja' ? 'アップロード' : '업로드'}</div>
         </button>
       </div>
