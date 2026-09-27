@@ -5,6 +5,7 @@ import { analyzeImage } from '@/lib/aiClient'
 import AnalysisProgress, { type AnalysisStage } from './AnalysisProgress'
 import type { GrapeResearch } from '@/lib/server/grapes'
 import type { WineResearch } from '@/lib/server/wineIdentity'
+import AppIcon from './AppIcon'
 import SimpleRange from './SimpleRange'
 import PersonalRating from './PersonalRating'
 import CriticScores from './CriticScores'
@@ -99,8 +100,9 @@ export default function TastingSheet({ lang, user, onBack, blindSessionId, blind
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
   const [entryMode, setEntryMode] = useState<'simple' | 'expert'>(blindSessionId ? 'expert' : 'simple')
+  const [useLabelAI, setUseLabelAI] = useState(true)
   const [monthlyUsage, setMonthlyUsage] = useState(0)
-  const [monthlyLimit, setMonthlyLimit] = useState<number | null>(10)
+  const [monthlyLimit, setMonthlyLimit] = useState<number | null>(null)
 
   // Wine Info
   const [wineName, setWineName] = useState('')
@@ -114,7 +116,6 @@ export default function TastingSheet({ lang, user, onBack, blindSessionId, blind
   const [researchedIdentity, setResearchedIdentity] = useState('')
   const [researchedFacts, setResearchedFacts] = useState('')
   const identity = JSON.stringify([wineName, producer, vintage])
-  const factsUnchanged = JSON.stringify([wineName, producer, vintage, region, country, grapeVariety, wineType]) === researchedFacts
   const verifiedScores = identity === researchedIdentity ? criticScores : []
 
   // Appearance
@@ -158,8 +159,9 @@ export default function TastingSheet({ lang, user, onBack, blindSessionId, blind
   const [deductionVintageRange, setDeductionVintageRange] = useState('')
   const [deductionPriceRange, setDeductionPriceRange] = useState('')
   const [deductionNotes, setDeductionNotes] = useState('')
-  const [answerProducer, setAnswerProducer] = useState('')
-  const [answerWine, setAnswerWine] = useState('')
+  const [answerRevealed, setAnswerRevealed] = useState(false)
+  const [answerWineType, setAnswerWineType] = useState('')
+  const factsUnchanged = JSON.stringify([wineName, producer, vintage, region, country, grapeVariety, blindSessionId ? answerWineType : wineType]) === researchedFacts
 
   // Translate unsaved categorical selections by dictionary position when UI language changes.
   const previousLanguage = useRef(lang)
@@ -204,16 +206,19 @@ export default function TastingSheet({ lang, user, onBack, blindSessionId, blind
       const tokyoMonth = new Date().toLocaleDateString('sv-SE', { timeZone: 'Asia/Tokyo' }).slice(0, 7)
       const start = new Date(`${tokyoMonth}-01T00:00:00+09:00`).toISOString()
       const [{ count }, { data: profile }] = await Promise.all([
-        supabase.from('ai_usage_logs').select('*', { count: 'exact', head: true }).eq('user_id', user.id).eq('feature', 'tasting_sheet').gte('created_at', start),
+        supabase.from('ai_usage_logs').select('*', { count: 'exact', head: true }).eq('user_id', user.id).eq('feature', 'label_scan').gte('created_at', start),
         supabase.from('profiles').select('plan').eq('id', user.id).maybeSingle(),
       ])
       const plan = profile?.plan || 'free'
-      const { data: limits } = await supabase.from('subscription_limits').select('tasting_monthly_limit').eq('plan', plan).maybeSingle()
+      const { data: limits } = await supabase.from('subscription_limits').select('label_monthly_limit').eq('plan', plan).maybeSingle()
       setMonthlyUsage(count || 0)
-      setMonthlyLimit(limits?.tasting_monthly_limit ?? (plan === 'paid' ? null : 10))
+      setMonthlyLimit(limits?.label_monthly_limit ?? null)
     }
     loadUsage().catch(() => {})
   }, [user.id])
+
+  const labelAIAvailable = monthlyLimit !== null && monthlyUsage < monthlyLimit
+  const labelAIEnabled = (!isBlind || answerRevealed) && useLabelAI && labelAIAvailable
 
   const changeEntryMode = (mode: 'simple' | 'expert') => {
     setEntryMode(mode)
@@ -245,14 +250,16 @@ export default function TastingSheet({ lang, user, onBack, blindSessionId, blind
     setLabelImageUrl(`data:${image.mediaType};base64,${image.base64}`)
     setCriticScores([])
     setResearchedIdentity('')
+    setResearchedFacts('')
     setGrapeResearch(null)
     setWineResearch(null)
     setGrapeEdited(false)
-    if (!isBlind) {
+    if (labelAIEnabled) {
       // A failed replacement scan must not leave the previous bottle's facts
       // attached to the newly uploaded photograph.
       setWineName(''); setProducer(''); setVintage(''); setRegion(''); setCountry(''); setGrapeVariety('')
-      setWineType(''); setCriticScores([]); setResearchedIdentity(''); setResearchedFacts('')
+      if (!isBlind) setWineType('')
+      setAnswerWineType(''); setCriticScores([]); setResearchedIdentity(''); setResearchedFacts('')
     }
     setAnalyzing(true)
     setMessage('')
@@ -265,7 +272,8 @@ export default function TastingSheet({ lang, user, onBack, blindSessionId, blind
       if (error) throw new Error(lang === 'ja' ? '写真を保存できませんでした。再度お試しください。' : '사진을 저장하지 못했습니다. 다시 시도해주세요.')
       setLabelPath(fileName)
       setLabelImageUrl(`data:${image.mediaType};base64,${image.base64}`)
-      if (!isBlind) {
+      if (labelAIEnabled) {
+        setMonthlyUsage(n => n + 1)
         setAnalysisStage('analyze')
         const info = await analyzeImage('label', image, lang, controller.signal)
         if (controller.signal.aborted) return
@@ -278,7 +286,8 @@ export default function TastingSheet({ lang, user, onBack, blindSessionId, blind
         setRegion(info.region || '')
         setCountry(info.country || '')
         setGrapeVariety(info.grapeVariety || '')
-        selectWineType(info.wineType || '', false)
+        if (isBlind) setAnswerWineType(info.wineType || '')
+        else selectWineType(info.wineType || '', false)
         setCriticScores(readableCriticScores(info.criticScores))
         setResearchedIdentity(JSON.stringify([info.wineName || '', info.producer || '', info.vintage && /^\d{4}$/.test(info.vintage) ? info.vintage : '']))
         setResearchedFacts(JSON.stringify([info.wineName || '', info.producer || '', info.vintage && /^\d{4}$/.test(info.vintage) ? info.vintage : '', info.region || '', info.country || '', info.grapeVariety || '', info.wineType || '']))
@@ -304,13 +313,13 @@ export default function TastingSheet({ lang, user, onBack, blindSessionId, blind
         mode: isBlind ? 'blind' : 'normal',
         blind_session_id: blindSessionId || null,
         blind_wine_number: blindWineNumber || null,
-        wine_name: isBlind ? null : wineName || null,
-        producer: isBlind ? null : producer || null,
-        vintage: isBlind ? null : (vintage ? parseInt(vintage) : null),
-        region: isBlind ? null : region || null,
-        country: isBlind ? null : country || null,
-        grape_variety: isBlind ? null : grapeVariety || null,
-        wine_type: (wineType || null) as 'red' | 'white' | 'rose' | 'sparkling' | 'sweet' | null,
+        wine_name: wineName || null,
+        producer: producer || null,
+        vintage: vintage ? parseInt(vintage) : null,
+        region: region || null,
+        country: country || null,
+        grape_variety: grapeVariety || null,
+        wine_type: ((isBlind && answerWineType) || wineType || null) as 'red' | 'white' | 'rose' | 'sparkling' | 'sweet' | null,
         label_image_url: labelPath || null,
         color_hue: colorHue || null,
         color_depth: colorDepth || null,
@@ -341,8 +350,8 @@ export default function TastingSheet({ lang, user, onBack, blindSessionId, blind
         deduction_vintage_range: isBlind ? deductionVintageRange || null : null,
         deduction_price_range: isBlind ? deductionPriceRange || null : null,
         deduction_notes: isBlind ? deductionNotes || null : null,
-        answer_producer: isBlind ? answerProducer || null : null,
-        answer_wine: isBlind ? answerWine || null : null,
+        answer_producer: isBlind ? producer || null : null,
+        answer_wine: isBlind ? wineName || null : null,
         score: null,
         stars: stars || null,
         palate_notes: palateNotes || null,
@@ -386,25 +395,26 @@ export default function TastingSheet({ lang, user, onBack, blindSessionId, blind
       </button>)}</div></div>
   }
 
-  return (
-    <div className="max-w-lg mx-auto">
-      {analyzing && <AnalysisProgress imageUrl={labelImageUrl} lang={lang} stage={analysisStage} mode={isBlind ? 'upload' : 'label'} onCancel={cancelAnalysis} />}
-      {message && <p role="alert" className="card p-3 mb-3 text-sm">{message}</p>}
-      {cropFile && <ImageCropModal file={cropFile} lang={lang} onCancel={() => setCropFile(null)} onConfirm={savePhoto} />}
-      {/* Header */}
-      <div className="sticky top-14 bg-parchment border-b border-cave-400/30 px-4 py-3 flex items-center justify-between z-40">
-        <button onClick={onBack} className="text-gold-700 text-sm">← {t.common.back}</button>
-        <div className="text-xs font-medium tracking-widest uppercase text-gold-700">
-          {isBlind ? `${t.blind.wine} ${blindWineNumber}` : t.tasting.normal}
-        </div>
-        <span className="w-16" aria-hidden="true" />
-      </div>
-
-      <div className="p-4 pb-28 space-y-6">
-
+  const labelEditor = <div className="space-y-5">
         <div className={`rounded-lg border px-3 py-2 text-sm ${monthlyLimit !== null && monthlyUsage >= monthlyLimit - 2 ? 'border-gold-500 bg-gold-50 text-gold-800' : 'border-cave-400 bg-white text-cave-50'}`}>
-          {lang === 'ja' ? '今月の作成回数' : '이번 달 작성 횟수'}: {monthlyUsage} / {monthlyLimit ?? (lang === 'ja' ? '無制限' : '무제한')}
+          {lang === 'ja' ? '今月のテイスティングAI' : '이번 달 테이스팅 AI'}: {monthlyUsage} / {monthlyLimit ?? '—'}
+          <p className="mt-1 text-xs">{lang === 'ja' ? '写真の保存・手入力はいつでも使えます。AI利用枠がない場合はワイン情報を入力してください。' : '사진 저장·직접 입력은 언제든 가능합니다. AI 사용 가능 횟수가 없으면 와인 정보를 직접 입력해주세요.'}</p>
         </div>
+
+        {<div className="rounded-xl border border-cave-400 bg-white p-3">
+          <button type="button" role="switch" aria-checked={labelAIEnabled} aria-describedby="label-ai-help"
+            disabled={analyzing || !labelAIAvailable} onClick={() => setUseLabelAI(value => !value)}
+            className="flex min-h-11 w-full items-center justify-between gap-3 text-left disabled:opacity-60">
+            <span className="text-sm font-medium">{t.labelAI.title}</span>
+            <span aria-hidden="true" className="flex items-center gap-2 text-xs">
+              {labelAIEnabled ? 'ON' : 'OFF'}
+              <span className={`relative h-6 w-11 rounded-full transition-colors ${labelAIEnabled ? 'bg-gold-700' : 'bg-gray-300'}`}>
+                <span className={`absolute left-0 top-1 h-4 w-4 rounded-full bg-white transition-transform ${labelAIEnabled ? 'translate-x-6' : 'translate-x-1'}`} />
+              </span>
+            </span>
+          </button>
+          <p id="label-ai-help" className="mt-1 text-xs leading-relaxed text-cave-100">{monthlyLimit === null ? t.labelAI.loading : !labelAIAvailable ? t.labelAI.unavailable : labelAIEnabled ? t.labelAI.on : t.labelAI.off}</p>
+        </div>}
 
         {/* Label Photo */}
         <div>
@@ -424,52 +434,19 @@ export default function TastingSheet({ lang, user, onBack, blindSessionId, blind
             className="hidden"
             onChange={e => { const file = e.target.files?.[0]; e.target.value = ""; if (file) handlePhotoUpload(file) }}
           />
-          {labelImageUrl ? (
-            <div className="relative">
-              <img src={labelImageUrl} alt="label" className="w-full max-h-64 object-contain bg-cave-600/30" />
-              <div className="absolute bottom-2 right-2 flex gap-2">
-                <button
-                  onClick={() => fileRef.current?.click()}
-                  className="bg-gradient-to-b from-gold-500 to-gold-600 text-white text-xs px-3 py-1"
-                >
-                  {lang === 'ja' ? '撮り直す' : '다시 찍기'}
-                </button>
-                <button
-                  onClick={() => uploadRef.current?.click()}
-                  className="bg-cave-600/80 border border-gold-500/40 text-gold-700 text-xs px-3 py-1"
-                >
-                  {lang === 'ja' ? 'アップロード' : '업로드'}
-                </button>
-              </div>
+          <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-3">
+            <div className="flex h-40 items-center justify-center overflow-hidden rounded-xl border border-cave-400 bg-white">
+              {labelImageUrl ? <img src={labelImageUrl} alt={t.tasting.labelPhoto} className="h-full w-full object-contain" /> : <div className="flex flex-col items-center gap-2 text-cave-100"><AppIcon name="wine" className="h-9 w-9"/><span className="text-xs">{t.tasting.labelPhoto}</span></div>}
             </div>
-          ) : analyzing ? (
-            <div className="w-full border-2 border-dashed border-gold-900/30 py-10 text-center text-cave-100">
-              <div className="text-2xl animate-pulse">🔍</div>
-              <div className="text-xs mt-2">{t.tasting.analyzing}</div>
+            <div className="grid grid-rows-2 gap-3">
+              <button type="button" disabled={analyzing} onClick={() => fileRef.current?.click()} className="btn-secondary flex items-center justify-center gap-2 rounded-xl px-2 text-sm"><AppIcon name="camera"/>{t.tasting.takePhoto}</button>
+              <button type="button" disabled={analyzing} onClick={() => uploadRef.current?.click()} className="btn-secondary flex items-center justify-center gap-2 rounded-xl px-2 text-sm"><AppIcon name="upload"/>{lang === 'ja' ? 'アップロード' : '업로드'}</button>
             </div>
-          ) : (
-            <div className="grid grid-cols-2 gap-3">
-              <button
-                onClick={() => fileRef.current?.click()}
-                className="border-2 border-dashed border-gold-900/30 py-8 text-center text-cave-100 hover:border-gold-500/40 transition-colors"
-              >
-                <div className="text-2xl mb-1">📷</div>
-                <div className="text-xs">{t.tasting.takePhoto}</div>
-                {!isBlind && <div className="text-xs text-gold-700 mt-1">AI {t.tasting.autoFilled}</div>}
-              </button>
-              <button
-                onClick={() => uploadRef.current?.click()}
-                className="border-2 border-dashed border-gold-900/30 py-8 text-center text-cave-100 hover:border-gold-500/40 transition-colors"
-              >
-                <div className="text-2xl mb-1">🖼️</div>
-                <div className="text-xs">{lang === 'ja' ? 'アップロード' : '업로드'}</div>
-              </button>
-            </div>
-          )}
+          </div>
         </div>
 
-        {/* Wine Info (normal mode only) */}
-        {!isBlind && (
+        {/* Shared identity fields for normal tasting and blind reveal. */}
+        {(
           <div>
             <div className="section-title">{lang === 'ja' ? 'ワイン情報' : '와인 정보'}</div>
             {wineResearch && <div role="status" className="mb-4 border border-gold-900/20 bg-cave-600/20 p-3 text-xs leading-6 text-cave-100">
@@ -518,6 +495,27 @@ export default function TastingSheet({ lang, user, onBack, blindSessionId, blind
             </div>
           </div>
         )}
+
+
+  </div>
+
+  return (
+    <div className="max-w-lg mx-auto">
+      {analyzing && <AnalysisProgress imageUrl={labelImageUrl} lang={lang} stage={analysisStage} mode={analysisStage === 'upload' ? 'upload' : 'label'} onCancel={cancelAnalysis} />}
+      {message && <p role="alert" className="card p-3 mb-3 text-sm">{message}</p>}
+      {cropFile && <ImageCropModal file={cropFile} lang={lang} onCancel={() => setCropFile(null)} onConfirm={savePhoto} />}
+      {/* Header */}
+      <div className="sticky top-14 bg-parchment border-b border-cave-400/30 px-4 py-3 flex items-center justify-between z-40">
+        <button onClick={onBack} className="text-gold-700 text-sm">← {t.common.back}</button>
+        <div className="text-xs font-medium tracking-widest uppercase text-gold-700">
+          {isBlind ? `${t.blind.wine} ${blindWineNumber}` : t.tasting.normal}
+        </div>
+        <span className="w-16" aria-hidden="true" />
+      </div>
+
+      <div className="p-4 pb-28 space-y-6">
+
+        {!isBlind && labelEditor}
 
               {/* Wine Type */}
               <div>
@@ -665,7 +663,7 @@ export default function TastingSheet({ lang, user, onBack, blindSessionId, blind
         {isBlind && (
           <div>
             <div className="section-title bg-cave-700 text-white p-2 -mx-4 px-4 mb-4">
-              🔍 {t.tasting.deduction}
+              {t.tasting.deduction}
             </div>
             <div className="space-y-4">
               <div>
@@ -699,20 +697,7 @@ export default function TastingSheet({ lang, user, onBack, blindSessionId, blind
                 className="w-full border border-cave-400/30 p-3 text-sm resize-none h-16 focus:outline-none focus:border-gold-500/40 bg-cave-600/40"
               />
 
-              {/* Answer */}
-              <div className="bg-gold-900/20 border border-gold-900/30 p-4">
-                <div className="text-xs font-medium text-gold-700 mb-3 tracking-widest uppercase">{t.tasting.answer}</div>
-                <div className="space-y-2">
-                  <div>
-                    <label className="text-xs text-gold-700">{t.tasting.answerProducer}</label>
-                    <input value={answerProducer} onChange={e => setAnswerProducer(e.target.value)} className="input-field" />
-                  </div>
-                  <div>
-                    <label className="text-xs text-gold-700">{t.tasting.answerWine}</label>
-                    <input value={answerWine} onChange={e => setAnswerWine(e.target.value)} className="input-field" />
-                  </div>
-                </div>
-              </div>
+
             </div>
           </div>
         )}
@@ -729,6 +714,20 @@ export default function TastingSheet({ lang, user, onBack, blindSessionId, blind
             className="w-full border border-cave-400/30 p-3 text-sm resize-none h-24 focus:outline-none focus:border-gold-500/40 bg-cave-600/40 font-serif italic"
           />
         </div>
+
+        {isBlind && <section className="card p-4 space-y-4">
+          <h3 className="section-title">{t.blindAnswer.title}</h3>
+          <p className="text-sm text-cave-100">{t.blindAnswer.note}</p>
+          {!answerRevealed ? <button type="button" className="btn-secondary w-full" onClick={() => setAnswerRevealed(true)}>{t.blindAnswer.open}</button> : <>
+            {labelEditor}
+            <label className="block text-sm">{t.blindAnswer.type}
+              <select className="input-field mt-2" value={answerWineType} onChange={e => setAnswerWineType(e.target.value)}>
+                <option value="">{t.blindAnswer.unknown}</option>
+                {Object.entries(t.wineType).map(([key,label]) => <option key={key} value={key}>{label}</option>)}
+              </select>
+            </label>
+          </>}
+        </section>}
 
         {/* Save Button */}
         <button onClick={handleSave} disabled={saving || saved || analyzing} className="btn-primary fixed bottom-[68px] left-1/2 z-40 w-[calc(100%-2rem)] max-w-[480px] -translate-x-1/2 py-4 text-sm shadow-lg">

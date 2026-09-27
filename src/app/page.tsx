@@ -9,10 +9,12 @@ import BlindMode from '@/components/BlindMode'
 import MyCellar from '@/components/MyCellar'
 import AIRecommend from '@/components/AIRecommend'
 import RecoverPassword from '@/components/RecoverPassword'
+import AppIcon from '@/components/AppIcon'
+import Membership from '@/components/Membership'
 import AuthScreen from '@/components/AuthScreen'
 import type { User } from '@supabase/supabase-js'
 
-export type Screen = 'home' | 'tasting' | 'blind' | 'cellar' | 'recommend'
+export type Screen = 'home' | 'tasting' | 'blind' | 'cellar' | 'recommend' | 'account'
 
 export default function App() {
   const [user, setUser] = useState<User | null>(null)
@@ -71,6 +73,7 @@ export default function App() {
           Vinoteca <span className="text-xs font-sans not-italic">v{APP_VERSION}</span>
         </button>
         <div className="flex items-center gap-3">
+          <button className="text-xs min-h-11" onClick={() => setScreen('account')}>{lang === 'ja' ? 'マイページ' : '마이페이지'}</button>
           <button
             onClick={() => setLang(lang === 'ja' ? 'ko' : 'ja')}
             className="text-xs border border-gold-700/40 text-gold-700 px-2 py-1 rounded-full hover:bg-gold-900/20 hover:border-gold-500/60 transition-colors"
@@ -88,6 +91,7 @@ export default function App() {
 
       {/* Main Content */}
       <main className="flex-1 pb-20">
+        {screen === 'account' && <Membership lang={lang} />}
         {screen === 'home' && <HomeScreen lang={lang} user={user} onNavigate={setScreen} />}
         {screen === 'tasting' && <TastingSheet lang={lang} user={user} onBack={() => setScreen('home')} />}
         {screen === 'blind' && <BlindMode lang={lang} user={user} onBack={() => setScreen('home')} />}
@@ -98,11 +102,11 @@ export default function App() {
       {/* Bottom Navigation */}
       <nav className="fixed bottom-0 left-0 right-0 bg-cave-700/95 backdrop-blur-md border-t border-gold-900/30 flex z-50 shadow-[0_-4px_20px_rgba(0,0,0,0.4)]">
         {([
-          { id: 'home', icon: '🏠', label: t.nav.home },
-          { id: 'tasting', icon: '📝', label: t.nav.tasting },
-          { id: 'blind', icon: '🎭', label: t.nav.blind },
-          { id: 'cellar', icon: '📚', label: t.nav.cellar },
-          { id: 'recommend', icon: '🤖', label: t.nav.recommend },
+          { id: 'home', label: t.nav.home },
+          { id: 'tasting', label: t.nav.tasting },
+          { id: 'blind', label: t.nav.blind },
+          { id: 'cellar', label: t.nav.cellar },
+          { id: 'recommend', label: t.nav.recommend },
         ] as const).map(item => (
           <button
             key={item.id}
@@ -111,7 +115,7 @@ export default function App() {
               screen === item.id ? 'text-gold-700' : 'text-cave-200'
             }`}
           >
-            <span className="text-lg">{item.icon}</span>
+            <AppIcon name={item.id} className="h-6 w-6"/>
             <span className="text-xs tracking-wide">{item.label}</span>
           </button>
         ))}

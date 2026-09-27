@@ -17,7 +17,7 @@ test('Fresh schema, migration, owner RLS, private storage and atomic AI quotas',
       create function storage.foldername(text) returns text[] language sql immutable as $$ select string_to_array($1, '/') $$;
       grant usage on schema public, auth, storage to authenticated;
       grant select, insert, delete on storage.objects to authenticated;`)
-    for (const file of ['supabase_schema.sql','supabase_schema_v2.sql','supabase/migrations/20260916_reliability.sql','supabase/migrations/20260918_product_foundation.sql','supabase/migrations/20260919_tasting_v13.sql','supabase/migrations/20260920_affordable_sommelier.sql']) await db.exec(fs.readFileSync(path.resolve(__dirname,'..',file),'utf8'))
+    for (const file of ['supabase_schema.sql','supabase_schema_v2.sql','supabase/migrations/20260916_reliability.sql','supabase/migrations/20260918_product_foundation.sql','supabase/migrations/20260919_tasting_v13.sql','supabase/migrations/20260920_affordable_sommelier.sql','supabase/migrations/20260927_membership_ai_limits.sql']) await db.exec(fs.readFileSync(path.resolve(__dirname,'..',file),'utf8'))
     await db.exec(`insert into auth.users values ('00000000-0000-0000-0000-000000000001'),('00000000-0000-0000-0000-000000000002');
       grant select, insert, update, delete on public.tastings, public.blind_sessions to authenticated;
       grant select on public.ai_usage_logs to authenticated;
@@ -62,6 +62,31 @@ test('Fresh schema, migration, owner RLS, private storage and atomic AI quotas',
     }
     assert.equal((await db.query("select public.reserve_ai_usage('sommelier') as allowed")).rows[0].allowed,false)
     await db.exec('reset role')
+    // Blind answers live in the same tasting row alongside original observations.
+    await db.exec(`insert into public.blind_sessions(id,user_id,title,wine_count) values ('00000000-0000-0000-0000-000000000003','00000000-0000-0000-0000-000000000002','Blind',1);
+      insert into public.tastings(user_id,mode,blind_session_id,blind_wine_number,wine_name,producer,answer_wine,answer_producer,stars,aromas,deduction_grape)
+      values ('00000000-0000-0000-0000-000000000002','blind','00000000-0000-0000-0000-000000000003',1,'Chablis','Domaine','Chablis','Domaine',3.7,ARRAY['lemon'],'Riesling');`)
+    const blindRows = (await db.query("select * from public.tastings where blind_session_id='00000000-0000-0000-0000-000000000003'")).rows
+    assert.equal(blindRows.length,1)
+    assert.equal(blindRows[0].wine_name,'Chablis')
+    assert.equal(Number(blindRows[0].stars),3.7)
+    assert.deepEqual(blindRows[0].aromas,['lemon'])
+    assert.equal(blindRows[0].deduction_grape,'Riesling')
+    // AI-only caps: 50th scan allowed, 51st blocked; manual notes remain writable.
+    await db.exec("delete from public.ai_usage_logs where user_id='00000000-0000-0000-0000-000000000002'; insert into public.ai_usage_logs(user_id,feature,created_at) select '00000000-0000-0000-0000-000000000002','label_scan',now()-interval '1 minute' from generate_series(1,49); set role authenticated;")
+    assert.equal((await db.query("select public.reserve_ai_usage('label_scan') as allowed")).rows[0].allowed,true)
+    await db.exec("reset role; update public.ai_usage_logs set created_at=now()-interval '1 minute'; set role authenticated;")
+    assert.equal((await db.query("select public.reserve_ai_usage('label_scan') as allowed")).rows[0].allowed,false)
+    await db.exec("insert into public.tastings(user_id,wine_name) values (auth.uid(),'Manual after limit'); reset role;")
+    // Simulate launch policy locally only: free AI scans denied, three sommelier uses.
+    await db.exec("update public.subscription_limits set label_monthly_limit=0,sommelier_monthly_limit=3 where plan='free'; delete from public.ai_usage_logs where user_id='00000000-0000-0000-0000-000000000002'; set role authenticated;")
+    assert.equal((await db.query("select public.reserve_ai_usage('label_scan') as allowed")).rows[0].allowed,false)
+    for(let i=0;i<3;i++) {
+      assert.equal((await db.query("select public.reserve_ai_usage('sommelier') as allowed")).rows[0].allowed,true)
+      await db.exec("reset role; update public.ai_usage_logs set created_at=now()-interval '1 minute'; set role authenticated;")
+    }
+    assert.equal((await db.query("select public.reserve_ai_usage('sommelier') as allowed")).rows[0].allowed,false)
+    await db.exec("insert into public.tastings(user_id,wine_name) values (auth.uid(),'Free manual'); reset role;")
     assert.equal((await db.query("select public from storage.buckets where id='label-images'")).rows[0].public,false)
   } finally { await db.close() }
 })
