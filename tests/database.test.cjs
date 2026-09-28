@@ -89,12 +89,16 @@ test('Fresh schema, migration, owner RLS, private storage and atomic AI quotas',
     await db.exec("insert into public.tastings(user_id,wine_name) values (auth.uid(),'Free manual'); reset role;")
     // Beta unlimited still logs usage; alert threshold informs operators without blocking.
     await db.exec(fs.readFileSync(path.resolve(__dirname,'../supabase/migrations/20260928_beta_unlimited.sql'),'utf8'))
+    await db.exec(fs.readFileSync(path.resolve(__dirname,'../supabase/migrations/20260928_drinking_place.sql'),'utf8'))
+    assert.equal((await db.query('select drinking_place from public.tastings limit 1')).rows[0].drinking_place,null)
     await db.exec("delete from public.ai_usage_logs where user_id='00000000-0000-0000-0000-000000000002'; insert into public.ai_usage_logs(user_id,feature) select '00000000-0000-0000-0000-000000000002','label_scan' from generate_series(1,99); set role authenticated;")
     assert.equal((await db.query("select public.reserve_ai_usage('label_scan') as allowed")).rows[0].allowed,true)
     assert.equal((await db.query("select public.reserve_ai_usage('sommelier') as allowed")).rows[0].allowed,true)
     assert.equal((await db.query('select * from public.ai_usage_alerts')).rows.length,0)
     await assert.rejects(db.query("insert into public.usage_monitor_admins values(auth.uid())"))
-    await db.exec("update public.tastings set wine_name='Edited wine',stars=4.2 where user_id=auth.uid() and wine_name='Chablis';")
+    await db.exec("update public.tastings set wine_name='Edited wine',stars=4.2,drinking_place='Wine shop XX' where user_id=auth.uid() and wine_name='Chablis';")
+    assert.equal((await db.query("select drinking_place from public.tastings where wine_name='Edited wine'")).rows[0].drinking_place,'Wine shop XX')
+    await assert.rejects(db.query("update public.tastings set drinking_place=repeat('a',201) where user_id=auth.uid()"))
     const edited=(await db.query("select stars,aromas,deduction_grape from public.tastings where wine_name='Edited wine'")).rows[0]
     assert.equal(Number(edited.stars),4.2);assert.deepEqual(edited.aromas,['lemon']);assert.equal(edited.deduction_grape,'Riesling')
     assert.equal((await db.query("update public.tastings set wine_name='Forbidden' where user_id='00000000-0000-0000-0000-000000000001' returning id")).rows.length,0)

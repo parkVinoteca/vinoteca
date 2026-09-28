@@ -102,6 +102,7 @@ export type Database = {
           blind_session_id: string | null
           blind_wine_number: number | null
           notes: string | null
+          drinking_place: string | null
           food_pairing: string[] | null
           critic_scores: import('./criticScores').CriticScore[] | null
           // Expert scores

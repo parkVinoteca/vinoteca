@@ -125,6 +125,7 @@ export default function MyCellar({ lang, user, onBack }: Props) {
           {selected.quality && <div className="card p-3 mb-3 text-sm">
             {selected.quality && <p>{t.tastingGuide.quality}: {selected.quality}</p>}
           </div>}
+          {selected.drinking_place && <div className="card p-3 mb-3"><h3 className="text-sm">{lang === 'ja' ? '飲んだ場所' : '와인을 마신 곳'}</h3><p className="text-sm whitespace-pre-wrap break-words">{selected.drinking_place}</p></div>}
           {selected.notes && (
             <div className="card p-4 mb-3">
               <div className="text-xs font-medium text-gold-700 mb-2">{t.tasting.notes}</div>

@@ -102,7 +102,7 @@ export default function TastingSheet({ lang, user, onBack, blindSessionId, blind
   const cancelAnalysis = () => { analysisRequest.current?.abort(); setAnalyzing(false); setMessage(t.analysis.cancelled) }
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
-  const [entryMode, setEntryMode] = useState<'simple' | 'expert'>(blindSessionId ? 'expert' : 'simple')
+  const [entryMode, setEntryMode] = useState<'quick' | 'simple' | 'expert'>(blindSessionId ? 'expert' : 'simple')
   const [useLabelAI, setUseLabelAI] = useState(true)
   const [monthlyUsage, setMonthlyUsage] = useState(0)
   const [usageReady, setUsageReady] = useState(false)
@@ -154,6 +154,7 @@ export default function TastingSheet({ lang, user, onBack, blindSessionId, blind
   const [quality, setQuality] = useState(initial?.quality || '')
   const [stars, setStars] = useState(initial ? personalRating(initial) || 0 : 0)
   const [notes, setNotes] = useState(initial?.notes || '')
+  const [drinkingPlace, setDrinkingPlace] = useState(initial?.drinking_place || '')
 
   // Blind deduction
   const [deductionType, setDeductionType] = useState(initial?.deduction_type || '')
@@ -202,7 +203,7 @@ export default function TastingSheet({ lang, user, onBack, blindSessionId, blind
   useEffect(() => {
     if (isBlind) return setEntryMode('expert')
     const savedMode = localStorage.getItem('vinoteca:tasting-mode')
-    if (savedMode === 'simple' || savedMode === 'expert') setEntryMode(savedMode)
+    if (savedMode === 'quick' || savedMode === 'simple' || savedMode === 'expert') setEntryMode(savedMode)
   }, [isBlind])
 
   useEffect(() => {
@@ -225,7 +226,7 @@ export default function TastingSheet({ lang, user, onBack, blindSessionId, blind
   const labelAIAvailable = usageReady && (monthlyLimit === null || monthlyUsage < monthlyLimit)
   const labelAIEnabled = (!isBlind || answerRevealed) && useLabelAI && labelAIAvailable
 
-  const changeEntryMode = (mode: 'simple' | 'expert') => {
+  const changeEntryMode = (mode: 'quick' | 'simple' | 'expert') => {
     setEntryMode(mode)
     localStorage.setItem('vinoteca:tasting-mode', mode)
   }
@@ -361,6 +362,7 @@ export default function TastingSheet({ lang, user, onBack, blindSessionId, blind
         stars: stars || null,
         palate_notes: palateNotes || null,
         notes: notes || null,
+        drinking_place: drinkingPlace.trim() || null,
         critic_scores: verifiedScores,
         language: lang,
       }
@@ -542,7 +544,8 @@ export default function TastingSheet({ lang, user, onBack, blindSessionId, blind
               </div>
 
         {!isBlind && <div className="sticky top-[106px] z-30 rounded-xl border border-cave-400 bg-white p-1 shadow-sm" role="group" aria-label={lang === 'ja' ? '入力モード' : '입력 모드'}>
-          <div className="grid grid-cols-2 gap-1">
+          <div className="grid grid-cols-3 gap-1">
+            <button onClick={() => changeEntryMode('quick')} aria-pressed={entryMode === 'quick'} className={`min-h-11 rounded-lg text-sm font-medium ${entryMode === 'quick' ? 'bg-gold-500 text-white' : 'text-cave-100'}`}>{lang === 'ja' ? 'ひとこと記録' : '초간단 기록'}</button>
             <button onClick={() => changeEntryMode('simple')} aria-pressed={entryMode === 'simple'} className={`min-h-11 rounded-lg text-sm font-medium ${entryMode === 'simple' ? 'bg-gold-500 text-white' : 'text-cave-100'}`}>{lang === 'ja' ? 'かんたん入力' : '간단 입력'}</button>
             <button onClick={() => changeEntryMode('expert')} aria-pressed={entryMode === 'expert'} className={`min-h-11 rounded-lg text-sm font-medium ${entryMode === 'expert' ? 'bg-gold-500 text-white' : 'text-cave-100'}`}>{lang === 'ja' ? '専門的' : '전문 입력'}</button>
           </div>
@@ -710,7 +713,13 @@ export default function TastingSheet({ lang, user, onBack, blindSessionId, blind
           </div>
         )}
 
+        {entryMode === 'quick' && !isBlind && <p className="text-sm text-cave-100">{lang === 'ja' ? '好みの評価とひとことだけでも大丈夫。分からない項目は空欄で残せます。' : '마음에 든 정도와 한 줄 메모만으로도 충분합니다. 모르는 항목은 비워두세요.'}</p>}
         <PersonalRating lang={lang} value={stars} onChange={setStars} />
+
+        <div>
+          <label htmlFor="drinking-place" className="section-title block">{lang === 'ja' ? '飲んだ場所（任意）' : '와인을 마신 곳 (선택)'}</label>
+          <input id="drinking-place" type="text" maxLength={200} value={drinkingPlace} onChange={e => setDrinkingPlace(e.target.value)} placeholder={lang === 'ja' ? '例：自宅、ワインショップ〇〇、レストラン〇〇' : '예: 집, 와인샵 ○○, 레스토랑 ○○'} className="w-full border border-cave-400/30 p-3 text-sm focus:outline-none focus:border-gold-500/40 bg-cave-600/40" />
+        </div>
 
         {/* Notes */}
         <div>
