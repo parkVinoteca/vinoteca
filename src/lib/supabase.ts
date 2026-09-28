@@ -20,7 +20,7 @@ export const supabase = new Proxy({} as SupabaseClient<Database>, {
 export type Database = {
   public: {
     Views: {}
-    Functions: { reserve_ai_usage: { Args: { p_feature: string }; Returns: boolean }; reserve_places_usage: {Args: Record<string,never>;Returns:boolean} }
+    Functions: { reserve_ai_usage: { Args: { p_feature: string }; Returns: boolean } }
     Enums: {}
     CompositeTypes: {}
     Tables: {
@@ -103,7 +103,9 @@ export type Database = {
           blind_wine_number: number | null
           notes: string | null
           drinking_place: string | null
-          drinking_place_id: string | null
+          drinking_latitude: number | null
+          drinking_longitude: number | null
+          drinking_accuracy: number | null
           food_pairing: string[] | null
           critic_scores: import('./criticScores').CriticScore[] | null
           // Expert scores
