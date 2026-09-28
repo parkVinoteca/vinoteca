@@ -87,6 +87,21 @@ test('Fresh schema, migration, owner RLS, private storage and atomic AI quotas',
     }
     assert.equal((await db.query("select public.reserve_ai_usage('sommelier') as allowed")).rows[0].allowed,false)
     await db.exec("insert into public.tastings(user_id,wine_name) values (auth.uid(),'Free manual'); reset role;")
+    // Beta unlimited still logs usage; alert threshold informs operators without blocking.
+    await db.exec(fs.readFileSync(path.resolve(__dirname,'../supabase/migrations/20260928_beta_unlimited.sql'),'utf8'))
+    await db.exec("delete from public.ai_usage_logs where user_id='00000000-0000-0000-0000-000000000002'; insert into public.ai_usage_logs(user_id,feature) select '00000000-0000-0000-0000-000000000002','label_scan' from generate_series(1,99); set role authenticated;")
+    assert.equal((await db.query("select public.reserve_ai_usage('label_scan') as allowed")).rows[0].allowed,true)
+    assert.equal((await db.query("select public.reserve_ai_usage('sommelier') as allowed")).rows[0].allowed,true)
+    assert.equal((await db.query('select * from public.ai_usage_alerts')).rows.length,0)
+    await assert.rejects(db.query("insert into public.usage_monitor_admins values(auth.uid())"))
+    await db.exec("update public.tastings set wine_name='Edited wine',stars=4.2 where user_id=auth.uid() and wine_name='Chablis';")
+    const edited=(await db.query("select stars,aromas,deduction_grape from public.tastings where wine_name='Edited wine'")).rows[0]
+    assert.equal(Number(edited.stars),4.2);assert.deepEqual(edited.aromas,['lemon']);assert.equal(edited.deduction_grape,'Riesling')
+    assert.equal((await db.query("update public.tastings set wine_name='Forbidden' where user_id='00000000-0000-0000-0000-000000000001' returning id")).rows.length,0)
+    await db.exec("reset role; insert into public.usage_monitor_admins values('00000000-0000-0000-0000-000000000001'); set role authenticated; select set_config('request.jwt.claim.sub','00000000-0000-0000-0000-000000000001',false);")
+    const alerts=(await db.query('select * from public.ai_usage_alerts')).rows
+    assert.equal(alerts.length,1);assert.equal(alerts[0].request_count,101)
+    await db.exec('reset role')
     assert.equal((await db.query("select public from storage.buckets where id='label-images'")).rows[0].public,false)
   } finally { await db.close() }
 })

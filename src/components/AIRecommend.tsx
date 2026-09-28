@@ -31,7 +31,7 @@ export default function AIRecommend({ lang, user, onBack }: Props) {
   const [recordCount,setRecordCount] = useState<number|null>(null)
   const [hints,setHints] = useState({wineName:'',producer:'',vintage:''})
   const [usageThisMonth, setUsageThisMonth] = useState(0)
-  const [usageLimit, setUsageLimit] = useState(5)
+  const [usageLimit, setUsageLimit] = useState<number | null>(0)
   const [cropFile, setCropFile] = useState<File | null>(null)
 
   useEffect(() => { loadStats().catch(() => setError(t.common.error)) }, [user.id])
@@ -56,9 +56,10 @@ export default function AIRecommend({ lang, user, onBack }: Props) {
 
     if (usageError) throw new Error(t.common.error)
     const plan = profile?.plan || 'free'
-    const { data: limits } = await supabase.from('subscription_limits').select('sommelier_monthly_limit').eq('plan', plan).maybeSingle()
+    const { data: limits, error: limitsError } = await supabase.from('subscription_limits').select('sommelier_monthly_limit').eq('plan', plan).maybeSingle()
     setUsageThisMonth(count || 0)
-    setUsageLimit(limits?.sommelier_monthly_limit || 20)
+    if(limitsError || !limits) throw new Error(t.common.error)
+    setUsageLimit(limits.sommelier_monthly_limit)
   }
 
   const analyzeWine = async (cropped?: { base64: string; mediaType: string }) => {
@@ -97,7 +98,7 @@ export default function AIRecommend({ lang, user, onBack }: Props) {
   }
 
   const unlocked = recordCount !== null && recordCount >= TASTE_PROFILE_MIN_RECORDS
-  const unavailable = analyzing || !unlocked || usageThisMonth >= usageLimit
+  const unavailable = analyzing || !unlocked || (usageLimit !== null && usageThisMonth >= usageLimit)
 
   return (
     <div className="max-w-lg mx-auto p-4">
@@ -107,8 +108,8 @@ export default function AIRecommend({ lang, user, onBack }: Props) {
 
       {!unlocked && <div className="card p-4 mb-4 text-sm leading-7 text-ink"><p>{recordCount===null ? st.checking : st.gate}</p>{recordCount!==null && <p>{st.progress}: {recordCount}/{TASTE_PROFILE_MIN_RECORDS}</p>}</div>}
 
-      <p className={`text-sm mb-3 ${usageThisMonth >= usageLimit - 1 ? 'text-gold-700 font-medium' : 'text-cave-100'}`}>
-        {lang === 'ja' ? `今月の利用回数: ${usageThisMonth} / ${usageLimit}回` : `이번 달 사용 횟수: ${usageThisMonth} / ${usageLimit}회`}
+      <p className={`text-sm mb-3 ${usageLimit !== null && usageThisMonth >= usageLimit - 1 ? 'text-gold-700 font-medium' : 'text-cave-100'}`}>
+        {lang === 'ja' ? `今月の利用回数: ${usageThisMonth} / ${usageLimit ?? '制限なし'}` : `이번 달 사용 횟수: ${usageThisMonth} / ${usageLimit ?? '제한 없음'}`}
         <span className="block text-xs font-normal mt-1">{lang === 'ja' ? '解析開始後の失敗も利用回数に含まれます。' : '분석 시작 후 실패한 요청도 횟수에 포함됩니다.'}</span>
       </p>
       <input ref={fileRef} type="file" accept="image/*" capture="environment" className="hidden"
@@ -261,7 +262,7 @@ export default function AIRecommend({ lang, user, onBack }: Props) {
         </div>
       )}
 
-      {usageThisMonth >= usageLimit && <div className="mt-5 rounded-lg border border-gold-500 bg-gold-50 p-3 text-sm text-gold-800">{lang === 'ja' ? '今月の利用上限に達しました。プラン変更機能は決済連携時に提供予定です。' : '이번 달 이용 한도에 도달했습니다. 플랜 변경 기능은 결제 연동 단계에서 제공할 예정입니다.'}</div>}
+      {usageLimit !== null && usageThisMonth >= usageLimit && <div className="mt-5 rounded-lg border border-gold-500 bg-gold-50 p-3 text-sm text-gold-800">{lang === 'ja' ? '今月の利用上限に達しました。プラン変更機能は決済連携時に提供予定です。' : '이번 달 이용 한도에 도달했습니다. 플랜 변경 기능은 결제 연동 단계에서 제공할 예정입니다.'}</div>}
     </div>
   )
 }

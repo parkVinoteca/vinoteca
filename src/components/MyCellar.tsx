@@ -1,5 +1,6 @@
 'use client'
 import { countryKey, countryLabel } from '@/lib/countries'
+import TastingSheet from './TastingSheet'
 import AppIcon from './AppIcon'
 import CriticScores from './CriticScores'
 import { useState, useEffect } from 'react'
@@ -23,6 +24,7 @@ export default function MyCellar({ lang, user, onBack }: Props) {
   const [filterType, setFilterType] = useState('')
   const [countries, setCountries] = useState<string[]>([])
   const [grapes, setGrapes] = useState<string[]>([])
+  const [editing, setEditing] = useState(false)
   const [selected, setSelected] = useState<any>(null)
 
   useEffect(() => { loadTastings().catch(() => { setError(t.common.error); setLoading(false) }) }, [user.id])
@@ -67,6 +69,8 @@ export default function MyCellar({ lang, user, onBack }: Props) {
     }
   }
 
+  if (selected && editing) return <TastingSheet key={selected.id} lang={lang} user={user} initial={selected} blindSessionId={selected.blind_session_id || undefined} blindWineNumber={selected.blind_wine_number || undefined} onBack={() => setEditing(false)} onSaved={() => { setEditing(false); setSelected(null); loadTastings().catch(() => setError(t.common.error)) }} />
+
   if (selected) {
     const describe = (label: string, value: string | null) => value ? `${label}: ${value}` : null
     return (
@@ -74,6 +78,7 @@ export default function MyCellar({ lang, user, onBack }: Props) {
         {error && <p role="alert" className="card p-3">{error}</p>}
         <div className="sticky top-14 bg-parchment border-b border-cave-400/30 px-4 py-3 flex items-center justify-between z-40">
           <button onClick={() => setSelected(null)} className="text-gold-700 text-sm">← {t.common.back}</button>
+          <button className="text-gold-700 text-sm min-h-11" onClick={() => setEditing(true)}>{lang === 'ja' ? '編集' : '수정'}</button>
           <button onClick={() => deleteTasting(selected.id).catch(() => setError(t.common.error))} className="text-red-500 text-xs">{t.common.delete}</button>
         </div>
         <div className="p-4">

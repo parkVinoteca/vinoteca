@@ -24,6 +24,8 @@ export type Database = {
     Enums: {}
     CompositeTypes: {}
     Tables: {
+      usage_monitor_admins: { Row: {user_id:string}; Insert: never; Update: never; Relationships: [] }
+      ai_usage_alerts: { Row: {user_id:string;usage_day:string;request_count:number;updated_at:string}; Insert: never; Update: never; Relationships: [] }
       ai_usage_logs: {
         Row: { id: string; user_id: string; feature: string; created_at: string }
         Insert: never
@@ -37,7 +39,7 @@ export type Database = {
         Relationships: []
       }
       subscription_limits: {
-        Row: { plan: 'free' | 'paid'; label_monthly_limit: number; tasting_monthly_limit: number | null; sommelier_monthly_limit: number }
+        Row: { plan: 'free' | 'paid'; label_monthly_limit: number | null; tasting_monthly_limit: number | null; sommelier_monthly_limit: number | null }
         Insert: never
         Update: never
         Relationships: []
