@@ -1,5 +1,6 @@
 'use client'
 import { useState, useRef, useEffect } from 'react'
+import DrinkingPlace from './DrinkingPlace'
 import { personalRating } from '@/lib/ratings'
 import type { Database } from '@/lib/supabase'
 import { supabase } from '@/lib/supabase'
@@ -155,6 +156,7 @@ export default function TastingSheet({ lang, user, onBack, blindSessionId, blind
   const [stars, setStars] = useState(initial ? personalRating(initial) || 0 : 0)
   const [notes, setNotes] = useState(initial?.notes || '')
   const [drinkingPlace, setDrinkingPlace] = useState(initial?.drinking_place || '')
+  const [drinkingPlaceId, setDrinkingPlaceId] = useState(initial?.drinking_place_id || '')
 
   // Blind deduction
   const [deductionType, setDeductionType] = useState(initial?.deduction_type || '')
@@ -363,6 +365,7 @@ export default function TastingSheet({ lang, user, onBack, blindSessionId, blind
         palate_notes: palateNotes || null,
         notes: notes || null,
         drinking_place: drinkingPlace.trim() || null,
+        drinking_place_id: drinkingPlaceId || null,
         critic_scores: verifiedScores,
         language: lang,
       }
@@ -718,6 +721,7 @@ export default function TastingSheet({ lang, user, onBack, blindSessionId, blind
 
         <div>
           <label htmlFor="drinking-place" className="section-title block">{lang === 'ja' ? '飲んだ場所（任意）' : '와인을 마신 곳 (선택)'}</label>
+          <DrinkingPlace lang={lang} placeId={drinkingPlaceId} onSelect={setDrinkingPlaceId}/>
           <input id="drinking-place" type="text" maxLength={200} value={drinkingPlace} onChange={e => setDrinkingPlace(e.target.value)} placeholder={lang === 'ja' ? '例：自宅、ワインショップ〇〇、レストラン〇〇' : '예: 집, 와인샵 ○○, 레스토랑 ○○'} className="w-full border border-cave-400/30 p-3 text-sm focus:outline-none focus:border-gold-500/40 bg-cave-600/40" />
         </div>
 
