@@ -545,14 +545,14 @@ export default function TastingSheet({ lang, user, onBack, blindSessionId, blind
 
         {!isBlind && <div className="sticky top-[106px] z-30 rounded-xl border border-cave-400 bg-white p-1 shadow-sm" role="group" aria-label={lang === 'ja' ? '入力モード' : '입력 모드'}>
           <div className="grid grid-cols-3 gap-1">
-            <button onClick={() => changeEntryMode('quick')} aria-pressed={entryMode === 'quick'} className={`min-h-11 rounded-lg text-sm font-medium ${entryMode === 'quick' ? 'bg-gold-500 text-white' : 'text-cave-100'}`}>{lang === 'ja' ? 'ひとこと記録' : '초간단 기록'}</button>
-            <button onClick={() => changeEntryMode('simple')} aria-pressed={entryMode === 'simple'} className={`min-h-11 rounded-lg text-sm font-medium ${entryMode === 'simple' ? 'bg-gold-500 text-white' : 'text-cave-100'}`}>{lang === 'ja' ? 'かんたん入力' : '간단 입력'}</button>
+            <button onClick={() => changeEntryMode('quick')} aria-pressed={entryMode === 'quick'} className={`min-h-11 rounded-lg text-sm font-medium ${entryMode === 'quick' ? 'bg-gold-500 text-white' : 'text-cave-100'}`}>{lang === 'ja' ? 'かんたん入力' : '간단 입력'}</button>
+            <button onClick={() => changeEntryMode('simple')} aria-pressed={entryMode === 'simple'} className={`min-h-11 rounded-lg text-sm font-medium ${entryMode === 'simple' ? 'bg-gold-500 text-white' : 'text-cave-100'}`}>{lang === 'ja' ? '一般入力' : '일반 입력'}</button>
             <button onClick={() => changeEntryMode('expert')} aria-pressed={entryMode === 'expert'} className={`min-h-11 rounded-lg text-sm font-medium ${entryMode === 'expert' ? 'bg-gold-500 text-white' : 'text-cave-100'}`}>{lang === 'ja' ? '専門的' : '전문 입력'}</button>
           </div>
         </div>}
 
         {entryMode === 'simple' && !isBlind && <div className="card p-4">
-          <div className="section-title">{lang === 'ja' ? 'かんたんテイスティング' : '간단 테이스팅'}</div>
+          <div className="section-title">{lang === 'ja' ? '一般テイスティング' : '일반 테이스팅'}</div>
           {!wineType && <p className="mb-4 rounded-lg bg-gold-50 p-3 text-sm text-gold-800">{lang === 'ja' ? '先にワインタイプを選ぶと、色と渋みの項目が合った内容になります。' : '먼저 와인 유형을 선택하면 색과 떫은맛 항목이 알맞게 표시됩니다.'}</p>}
           {colorOptions.length > 0 && <div className="mb-5">
             <div className="text-sm font-medium text-ink mb-2">{lang === 'ja' ? 'ワインの色' : '와인 색'}</div>

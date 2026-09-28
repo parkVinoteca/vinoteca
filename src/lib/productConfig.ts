@@ -1,4 +1,4 @@
-export const APP_VERSION = '1.4.4'
+export const APP_VERSION = '1.4.5'
 export const TASTE_PROFILE_RECORD_LIMIT = 300
 export const TASTE_PROFILE_MIN_RECORDS = 3
 
@@ -9,7 +9,7 @@ export const RECENCY_WEIGHT_BANDS = [
 ] as const
 
 export type CurrentWineType = 'white' | 'red' | 'rose' | 'sparkling'
-export const CURRENT_WINE_TYPES: CurrentWineType[] = ['white', 'red', 'sparkling', 'rose']
+export const CURRENT_WINE_TYPES: CurrentWineType[] = ['red', 'white', 'sparkling', 'rose']
 
 // Historic `sweet` records remain readable. New records classify sweetness separately.
 export const isCurrentWineType = (value: string): value is CurrentWineType =>
