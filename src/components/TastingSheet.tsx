@@ -1,5 +1,7 @@
 'use client'
 import { useState, useRef, useEffect } from 'react'
+import { personalRating } from '@/lib/ratings'
+import type { Database } from '@/lib/supabase'
 import { supabase } from '@/lib/supabase'
 import { analyzeImage } from '@/lib/aiClient'
 import AnalysisProgress, { type AnalysisStage } from './AnalysisProgress'
@@ -21,6 +23,7 @@ interface Props {
   blindSessionId?: string
   blindWineNumber?: number
   onSaved?: () => void
+  initial?: Database['public']['Tables']['tastings']['Row'] & { image_url?: string | null }
 }
 
   const ScaleRow = ({ label, hint, options, value, onChange }: any) => (
@@ -78,7 +81,7 @@ interface Props {
 
 
 
-export default function TastingSheet({ lang, user, onBack, blindSessionId, blindWineNumber, onSaved }: Props) {
+export default function TastingSheet({ lang, user, onBack, blindSessionId, blindWineNumber, onSaved, initial }: Props) {
   const t = translations[lang]
   const fileRef = useRef<HTMLInputElement>(null)
   const uploadRef = useRef<HTMLInputElement>(null)
@@ -87,8 +90,8 @@ export default function TastingSheet({ lang, user, onBack, blindSessionId, blind
   const [message, setMessage] = useState('')
   const [cropFile, setCropFile] = useState<File | null>(null)
   const saveLock = useRef(false)
-  const [labelPath, setLabelPath] = useState('')
-  const [labelImageUrl, setLabelImageUrl] = useState('')
+  const [labelPath, setLabelPath] = useState(initial?.label_image_url || '')
+  const [labelImageUrl, setLabelImageUrl] = useState(initial?.image_url || '')
   const [analyzing, setAnalyzing] = useState(false)
   const [analysisStage, setAnalysisStage] = useState<AnalysisStage>('upload')
   const analysisRequest = useRef<AbortController | null>(null)
@@ -99,72 +102,74 @@ export default function TastingSheet({ lang, user, onBack, blindSessionId, blind
   const cancelAnalysis = () => { analysisRequest.current?.abort(); setAnalyzing(false); setMessage(t.analysis.cancelled) }
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
-  const [entryMode, setEntryMode] = useState<'simple' | 'expert'>(blindSessionId ? 'expert' : 'simple')
+  const [entryMode, setEntryMode] = useState<'quick' | 'simple' | 'expert'>(blindSessionId ? 'expert' : 'simple')
   const [useLabelAI, setUseLabelAI] = useState(true)
   const [monthlyUsage, setMonthlyUsage] = useState(0)
+  const [usageReady, setUsageReady] = useState(false)
   const [monthlyLimit, setMonthlyLimit] = useState<number | null>(null)
 
   // Wine Info
-  const [wineName, setWineName] = useState('')
-  const [producer, setProducer] = useState('')
-  const [vintage, setVintage] = useState('')
-  const [region, setRegion] = useState('')
-  const [country, setCountry] = useState('')
-  const [grapeVariety, setGrapeVariety] = useState('')
-  const [wineType, setWineType] = useState('')
-  const [criticScores, setCriticScores] = useState<CriticScore[]>([])
-  const [researchedIdentity, setResearchedIdentity] = useState('')
+  const [wineName, setWineName] = useState(initial?.wine_name || initial?.answer_wine || '')
+  const [producer, setProducer] = useState(initial?.producer || initial?.answer_producer || '')
+  const [vintage, setVintage] = useState(initial?.vintage ? String(initial.vintage) : '')
+  const [region, setRegion] = useState(initial?.region || '')
+  const [country, setCountry] = useState(initial?.country || '')
+  const [grapeVariety, setGrapeVariety] = useState(initial?.grape_variety || '')
+  const [wineType, setWineType] = useState(initial?.wine_type || '')
+  const [criticScores, setCriticScores] = useState<CriticScore[]>(initial?.critic_scores || [])
+  const [researchedIdentity, setResearchedIdentity] = useState(initial ? JSON.stringify([initial.wine_name || '', initial.producer || '', initial.vintage ? String(initial.vintage) : '']) : '')
   const [researchedFacts, setResearchedFacts] = useState('')
   const identity = JSON.stringify([wineName, producer, vintage])
   const verifiedScores = identity === researchedIdentity ? criticScores : []
 
   // Appearance
-  const [colorHue, setColorHue] = useState('')
-  const [colorDepth, setColorDepth] = useState('')
-  const [clarity, setClarity] = useState('')
-  const [viscosity, setViscosity] = useState('')
+  const [colorHue, setColorHue] = useState(initial?.color_hue || '')
+  const [colorDepth, setColorDepth] = useState(initial?.color_depth || '')
+  const [clarity, setClarity] = useState(initial?.clarity || '')
+  const [viscosity, setViscosity] = useState(initial?.viscosity || '')
 
   // Nose
-  const [noseIntensity, setNoseIntensity] = useState('')
-  const [noseDevelopment, setNoseDevelopment] = useState('')
+  const [noseIntensity, setNoseIntensity] = useState(initial?.nose_intensity || '')
+  const [noseDevelopment, setNoseDevelopment] = useState(initial?.nose_development || '')
   const [customAroma, setCustomAroma] = useState('')
-  const [aromas, setAromas] = useState<string[]>([])
+  const [aromas, setAromas] = useState<string[]>(initial?.aromas || [])
 
   // Palate
-  const [sweetness, setSweetness] = useState('')
-  const [acidity, setAcidity] = useState('')
-  const [tannin, setTannin] = useState('')
-  const [tanninTexture, setTanninTexture] = useState('')
-  const [mousse, setMousse] = useState('')
-  const [alcohol, setAlcohol] = useState('')
-  const [body, setBody] = useState('')
-  const [flavorIntensity, setFlavorIntensity] = useState('')
-  const [finish, setFinish] = useState('')
-  const [palateNotes, setPalateNotes] = useState('')
+  const [sweetness, setSweetness] = useState(initial?.sweetness || '')
+  const [acidity, setAcidity] = useState(initial?.acidity || '')
+  const [tannin, setTannin] = useState(initial?.tannin || '')
+  const [tanninTexture, setTanninTexture] = useState(initial?.tannin_texture || '')
+  const [mousse, setMousse] = useState(initial?.mousse || '')
+  const [alcohol, setAlcohol] = useState(initial?.alcohol || '')
+  const [body, setBody] = useState(initial?.body || '')
+  const [flavorIntensity, setFlavorIntensity] = useState(initial?.flavor_intensity || '')
+  const [finish, setFinish] = useState(initial?.finish || '')
+  const [palateNotes, setPalateNotes] = useState(initial?.palate_notes || '')
 
   // Conclusions
-  const [blicB, setBlicB] = useState(0)
-  const [blicL, setBlicL] = useState(0)
-  const [blicI, setBlicI] = useState(0)
-  const [blicC, setBlicC] = useState(0)
-  const [quality, setQuality] = useState('')
-  const [stars, setStars] = useState(0)
-  const [notes, setNotes] = useState('')
+  const [blicB, setBlicB] = useState(initial?.blic_balance || 0)
+  const [blicL, setBlicL] = useState(initial?.blic_length || 0)
+  const [blicI, setBlicI] = useState(initial?.blic_intensity || 0)
+  const [blicC, setBlicC] = useState(initial?.blic_complexity || 0)
+  const [quality, setQuality] = useState(initial?.quality || '')
+  const [stars, setStars] = useState(initial ? personalRating(initial) || 0 : 0)
+  const [notes, setNotes] = useState(initial?.notes || '')
+  const [drinkingPlace, setDrinkingPlace] = useState(initial?.drinking_place || '')
 
   // Blind deduction
-  const [deductionType, setDeductionType] = useState('')
-  const [deductionClimate, setDeductionClimate] = useState('')
-  const [deductionGrape, setDeductionGrape] = useState('')
-  const [deductionRegion, setDeductionRegion] = useState('')
-  const [deductionVintageRange, setDeductionVintageRange] = useState('')
-  const [deductionPriceRange, setDeductionPriceRange] = useState('')
-  const [deductionNotes, setDeductionNotes] = useState('')
-  const [answerRevealed, setAnswerRevealed] = useState(false)
-  const [answerWineType, setAnswerWineType] = useState('')
+  const [deductionType, setDeductionType] = useState(initial?.deduction_type || '')
+  const [deductionClimate, setDeductionClimate] = useState(initial?.deduction_climate || '')
+  const [deductionGrape, setDeductionGrape] = useState(initial?.deduction_grape || '')
+  const [deductionRegion, setDeductionRegion] = useState(initial?.deduction_region || '')
+  const [deductionVintageRange, setDeductionVintageRange] = useState(initial?.deduction_vintage_range || '')
+  const [deductionPriceRange, setDeductionPriceRange] = useState(initial?.deduction_price_range || '')
+  const [deductionNotes, setDeductionNotes] = useState(initial?.deduction_notes || '')
+  const [answerRevealed, setAnswerRevealed] = useState(Boolean(initial))
+  const [answerWineType, setAnswerWineType] = useState(initial?.wine_type || '')
   const factsUnchanged = JSON.stringify([wineName, producer, vintage, region, country, grapeVariety, blindSessionId ? answerWineType : wineType]) === researchedFacts
 
   // Translate unsaved categorical selections by dictionary position when UI language changes.
-  const previousLanguage = useRef(lang)
+  const previousLanguage = useRef(initial?.language || lang)
   useEffect(() => {
     const before = translations[previousLanguage.current]
     previousLanguage.current = lang
@@ -193,12 +198,12 @@ export default function TastingSheet({ lang, user, onBack, blindSessionId, blind
     setMousse(value => remap(value,lang === 'ko' ? ['繊細','クリーミー','荒い'] : ['섬세함','크리미함','거침'],lang === 'ko' ? ['섬세함','크리미함','거침'] : ['繊細','クリーミー','荒い']))
   }, [lang,t])
 
-  const isBlind = !!blindSessionId
+  const isBlind = !!blindSessionId || initial?.mode === 'blind'
 
   useEffect(() => {
     if (isBlind) return setEntryMode('expert')
     const savedMode = localStorage.getItem('vinoteca:tasting-mode')
-    if (savedMode === 'simple' || savedMode === 'expert') setEntryMode(savedMode)
+    if (savedMode === 'quick' || savedMode === 'simple' || savedMode === 'expert') setEntryMode(savedMode)
   }, [isBlind])
 
   useEffect(() => {
@@ -210,17 +215,18 @@ export default function TastingSheet({ lang, user, onBack, blindSessionId, blind
         supabase.from('profiles').select('plan').eq('id', user.id).maybeSingle(),
       ])
       const plan = profile?.plan || 'free'
-      const { data: limits } = await supabase.from('subscription_limits').select('label_monthly_limit').eq('plan', plan).maybeSingle()
+      const { data: limits, error: limitError } = await supabase.from('subscription_limits').select('label_monthly_limit').eq('plan', plan).maybeSingle()
       setMonthlyUsage(count || 0)
       setMonthlyLimit(limits?.label_monthly_limit ?? null)
+      setUsageReady(!limitError && Boolean(limits))
     }
     loadUsage().catch(() => {})
   }, [user.id])
 
-  const labelAIAvailable = monthlyLimit !== null && monthlyUsage < monthlyLimit
+  const labelAIAvailable = usageReady && (monthlyLimit === null || monthlyUsage < monthlyLimit)
   const labelAIEnabled = (!isBlind || answerRevealed) && useLabelAI && labelAIAvailable
 
-  const changeEntryMode = (mode: 'simple' | 'expert') => {
+  const changeEntryMode = (mode: 'quick' | 'simple' | 'expert') => {
     setEntryMode(mode)
     localStorage.setItem('vinoteca:tasting-mode', mode)
   }
@@ -308,9 +314,9 @@ export default function TastingSheet({ lang, user, onBack, blindSessionId, blind
     setSaving(true)
     setMessage('')
     try {
-      const { error } = await supabase.from('tastings').insert({
+      const payload = {
         user_id: user.id,
-        mode: isBlind ? 'blind' : 'normal',
+        mode: (isBlind ? 'blind' : 'normal') as 'blind' | 'normal',
         blind_session_id: blindSessionId || null,
         blind_wine_number: blindWineNumber || null,
         wine_name: wineName || null,
@@ -356,9 +362,13 @@ export default function TastingSheet({ lang, user, onBack, blindSessionId, blind
         stars: stars || null,
         palate_notes: palateNotes || null,
         notes: notes || null,
+        drinking_place: drinkingPlace.trim() || null,
         critic_scores: verifiedScores,
         language: lang,
-      })
+      }
+      const { error } = initial
+        ? await supabase.from('tastings').update({...payload, mode: initial.mode, nose_condition: initial.nose_condition}).eq('id', initial.id).eq('user_id', user.id).select('id').single()
+        : await supabase.from('tastings').insert(payload)
       if (error) throw error
       setSaved(true)
       setTimeout(() => {
@@ -397,7 +407,7 @@ export default function TastingSheet({ lang, user, onBack, blindSessionId, blind
 
   const labelEditor = <div className="space-y-5">
         <div className={`rounded-lg border px-3 py-2 text-sm ${monthlyLimit !== null && monthlyUsage >= monthlyLimit - 2 ? 'border-gold-500 bg-gold-50 text-gold-800' : 'border-cave-400 bg-white text-cave-50'}`}>
-          {lang === 'ja' ? 'AI情報入力 今月の使用量' : 'AI 정보 입력 이번 달 사용량'}: {monthlyUsage} / {monthlyLimit ?? '—'}
+          {lang === 'ja' ? 'AI情報入力 今月の使用量' : 'AI 정보 입력 이번 달 사용량'}: {monthlyUsage} / {usageReady ? monthlyLimit ?? (lang === 'ja' ? '制限なし' : '제한 없음') : '—'}
           <p className="mt-1 text-xs">{lang === 'ja' ? '写真の保存・手入力はいつでも使えます。AI利用枠がない場合はワイン情報を入力してください。' : '사진 저장·직접 입력은 언제든 가능합니다. AI 사용 가능 횟수가 없으면 와인 정보를 직접 입력해주세요.'}</p>
         </div>
 
@@ -413,7 +423,7 @@ export default function TastingSheet({ lang, user, onBack, blindSessionId, blind
               </span>
             </span>
           </button>
-          <p id="label-ai-help" className="mt-1 text-xs leading-relaxed text-cave-100">{monthlyLimit === null ? t.labelAI.loading : !labelAIAvailable ? t.labelAI.unavailable : labelAIEnabled ? t.labelAI.on : t.labelAI.off}</p>
+          <p id="label-ai-help" className="mt-1 text-xs leading-relaxed text-cave-100">{!usageReady ? t.labelAI.loading : !labelAIAvailable ? t.labelAI.unavailable : labelAIEnabled ? t.labelAI.on : t.labelAI.off}</p>
         </div>}
 
         {/* Label Photo */}
@@ -508,7 +518,7 @@ export default function TastingSheet({ lang, user, onBack, blindSessionId, blind
       <div className="sticky top-14 bg-parchment border-b border-cave-400/30 px-4 py-3 flex items-center justify-between z-40">
         <button onClick={onBack} className="text-gold-700 text-sm">← {t.common.back}</button>
         <div className="text-xs font-medium tracking-widest uppercase text-gold-700">
-          {isBlind ? `${t.blind.wine} ${blindWineNumber}` : t.tasting.normal}
+          {initial ? (lang === 'ja' ? '記録を編集' : '기록 수정') : isBlind ? `${t.blind.wine} ${blindWineNumber}` : t.tasting.normal}
         </div>
         <span className="w-16" aria-hidden="true" />
       </div>
@@ -534,7 +544,8 @@ export default function TastingSheet({ lang, user, onBack, blindSessionId, blind
               </div>
 
         {!isBlind && <div className="sticky top-[106px] z-30 rounded-xl border border-cave-400 bg-white p-1 shadow-sm" role="group" aria-label={lang === 'ja' ? '入力モード' : '입력 모드'}>
-          <div className="grid grid-cols-2 gap-1">
+          <div className="grid grid-cols-3 gap-1">
+            <button onClick={() => changeEntryMode('quick')} aria-pressed={entryMode === 'quick'} className={`min-h-11 rounded-lg text-sm font-medium ${entryMode === 'quick' ? 'bg-gold-500 text-white' : 'text-cave-100'}`}>{lang === 'ja' ? 'ひとこと記録' : '초간단 기록'}</button>
             <button onClick={() => changeEntryMode('simple')} aria-pressed={entryMode === 'simple'} className={`min-h-11 rounded-lg text-sm font-medium ${entryMode === 'simple' ? 'bg-gold-500 text-white' : 'text-cave-100'}`}>{lang === 'ja' ? 'かんたん入力' : '간단 입력'}</button>
             <button onClick={() => changeEntryMode('expert')} aria-pressed={entryMode === 'expert'} className={`min-h-11 rounded-lg text-sm font-medium ${entryMode === 'expert' ? 'bg-gold-500 text-white' : 'text-cave-100'}`}>{lang === 'ja' ? '専門的' : '전문 입력'}</button>
           </div>
@@ -702,7 +713,13 @@ export default function TastingSheet({ lang, user, onBack, blindSessionId, blind
           </div>
         )}
 
+        {entryMode === 'quick' && !isBlind && <p className="text-sm text-cave-100">{lang === 'ja' ? '好みの評価とひとことだけでも大丈夫。分からない項目は空欄で残せます。' : '마음에 든 정도와 한 줄 메모만으로도 충분합니다. 모르는 항목은 비워두세요.'}</p>}
         <PersonalRating lang={lang} value={stars} onChange={setStars} />
+
+        <div>
+          <label htmlFor="drinking-place" className="section-title block">{lang === 'ja' ? '飲んだ場所（任意）' : '와인을 마신 곳 (선택)'}</label>
+          <input id="drinking-place" type="text" maxLength={200} value={drinkingPlace} onChange={e => setDrinkingPlace(e.target.value)} placeholder={lang === 'ja' ? '例：自宅、ワインショップ〇〇、レストラン〇〇' : '예: 집, 와인샵 ○○, 레스토랑 ○○'} className="w-full border border-cave-400/30 p-3 text-sm focus:outline-none focus:border-gold-500/40 bg-cave-600/40" />
+        </div>
 
         {/* Notes */}
         <div>
