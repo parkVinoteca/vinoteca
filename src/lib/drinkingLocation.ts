@@ -5,10 +5,7 @@ export function readLocation(row?:{drinking_latitude?:number|null;drinking_longi
  return {latitude:lat,longitude:lng,accuracy:typeof a==='number'&&Number.isFinite(a)&&a>=0&&a<=20040000?a:null}
 }
 export function locationMap(point:LocationPoint){
- // About 50m in each direction at normal latitudes; this is a viewport, not a search.
- const dy=50/111320,dx=dy/Math.max(0.01,Math.cos(point.latitude*Math.PI/180))
- const bbox=[Math.max(-180,point.longitude-dx),Math.max(-90,point.latitude-dy),Math.min(180,point.longitude+dx),Math.min(90,point.latitude+dy)].join(',')
- return 'https://www.openstreetmap.org/export/embed.html?'+new URLSearchParams({bbox,layer:'mapnik',marker:`${point.latitude},${point.longitude}`})
+ return 'https://www.google.com/maps/search/?'+new URLSearchParams({api:'1',query:`${point.latitude},${point.longitude}`})
 }
 export function locationTiles(point:LocationPoint){
  const zoom=19,n=2**zoom,lat=Math.max(-85.05112878,Math.min(85.05112878,point.latitude))*Math.PI/180

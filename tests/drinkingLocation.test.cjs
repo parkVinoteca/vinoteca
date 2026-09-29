@@ -9,13 +9,12 @@ test('Location rejects missing or invalid coordinates but accepts zero',()=>{
  assert.equal(readLocation({drinking_latitude:0,drinking_longitude:0}).latitude,0)
  assert.equal(readLocation({drinking_latitude:35,drinking_longitude:139,drinking_accuracy:-1}).accuracy,null)
 })
-test('Small map preserves marker and bounds at poles and dateline',()=>{
+test('Map link preserves coordinates and tiles stay in bounds',()=>{
  for(const point of [{latitude:35,longitude:139,accuracy:10},{latitude:90,longitude:180,accuracy:null}]){
   const url=new URL(locationMap(point))
-  assert.equal(url.hostname,'www.openstreetmap.org')
-  assert.equal(url.searchParams.get('marker'),`${point.latitude},${point.longitude}`)
-  const [west,south,east,north]=url.searchParams.get('bbox').split(',').map(Number)
-  assert.ok(west>=-180&&east<=180&&south>=-90&&north<=90)
+  assert.equal(url.hostname,'www.google.com')
+  assert.equal(url.searchParams.get('api'),'1')
+  assert.equal(url.searchParams.get('query'),`${point.latitude},${point.longitude}`)
   const map=locationTiles(point)
   assert.equal(map.tiles.length,9)
   assert.ok(Number.isFinite(map.offsetX)&&Number.isFinite(map.offsetY))
