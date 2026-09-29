@@ -1,0 +1,90 @@
+{
+  "date": "2026-09-29",
+  "environment": "production v1.4.4",
+  "model": "gemini-3.5-flash-lite",
+  "inputMode": "text names, no image OCR",
+  "calls": 3,
+  "searchConfigured": false,
+  "claudeCalls": 0,
+  "notes": "Existing four numerical axes only. Sweetness textual; aroma intensity absent. Costs are paid-tier equivalents, not invoices. Provider counters from Vercel ai_usage logs. No tasting records created.",
+  "samples": [
+    {
+      "wine": "Chablis 2022",
+      "httpHeadersMs": 5608.913,
+      "providerMs": 2620,
+      "inputTokens": 1778,
+      "outputTokens": 616,
+      "levels": {
+        "bodyLevel": 2,
+        "tanninLevel": 1,
+        "acidityLevel": 4,
+        "alcoholLevel": 3
+      },
+      "profile": {
+        "visual": "輝きのある淡いレモンイエロー。",
+        "nose": "レモン、青りんご、白い花、濡れた石のようなミネラル感。",
+        "aging": null,
+        "body": "フレッシュで引き締まったミディアムボディ。",
+        "acidity": "生き生きとした高い酸味。",
+        "sweetness": "辛口",
+        "tannin": null,
+        "finish": "レモンのような爽やかな風味が長く続くクリーンなフィニッシュ。",
+        "pairing": "牡蠣や白身魚のカルパッチョ。レモンの酸味とミネラル感が魚介の旨味を引き立てます。"
+      },
+      "clarification": null,
+      "paidEquivalentUSD": 0.0020734
+    },
+    {
+      "wine": "Garzon Tannat Reserva 2023",
+      "httpHeadersMs": 4762.224,
+      "providerMs": 2745,
+      "inputTokens": 1776,
+      "outputTokens": 602,
+      "levels": {
+        "bodyLevel": 5,
+        "tanninLevel": 5,
+        "acidityLevel": 3,
+        "alcoholLevel": 4
+      },
+      "profile": {
+        "visual": "濃いルビー色",
+        "nose": "ブラックベリー、プラム、スミレ、樽由来のスパイス香",
+        "aging": "トーストやチョコレートのニュアンス",
+        "body": "フルボディ",
+        "acidity": "中程度",
+        "sweetness": "辛口",
+        "tannin": "豊かなタンニン",
+        "finish": "力強く引き締まった余韻",
+        "pairing": "牛ステーキ。しっかりとしたタンニンが赤身肉の旨味と脂を心地よく受け止めます。"
+      },
+      "clarification": null,
+      "paidEquivalentUSD": 0.0020377999999999998
+    },
+    {
+      "wine": "Tortue & Grue White",
+      "httpHeadersMs": 4222.884,
+      "providerMs": 2247,
+      "inputTokens": 1778,
+      "outputTokens": 422,
+      "levels": {
+        "bodyLevel": null,
+        "tanninLevel": null,
+        "acidityLevel": null,
+        "alcoholLevel": null
+      },
+      "profile": {
+        "visual": null,
+        "nose": null,
+        "aging": null,
+        "body": null,
+        "acidity": null,
+        "sweetness": null,
+        "tannin": null,
+        "finish": null,
+        "pairing": null
+      },
+      "clarification": "生産者や原産国など、さらに詳しい情報を教えていただけますでしょうか。",
+      "paidEquivalentUSD": 0.0015884
+    }
+  ]
+}

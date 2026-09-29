@@ -11,3 +11,5 @@ Initial experimental final score: 40% manual-profile match plus 60% existing rec
 Radar drawing, preference edits and arithmetic require no AI calls. New AI target dimensions can be included in the existing analysis request, with modest output growth; usage measurement needed. Never copy model-derived tastes into user-observed tasting fields to train against the model's own output.
 
 Rollout proposal: first a read-only comparison with evidence state and accessibility; then optional manual profile and owner-protected persistence, then 40/60 weighting validated against held-out ratings. Changes to DB, prompts and scoring require dedicated tests. Current PR17 only includes map and flyer changes; this is a proposal, not a shipped feature.
+
+2026-09-29: User accepted overall proposal and authorized wine trials. Existing production trial reveals body prose/number inconsistency; see RADAR_RELIABILITY_20260929.md before implementing graph. Do not treat the four-axis trial as validation of a six-axis feature.

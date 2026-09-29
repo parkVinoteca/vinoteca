@@ -7,3 +7,6 @@ Create a NEW Japanese premium Instagram flyer for Vinoteca. Portrait 4:5. Main m
 
 ## 2026-09-29 mobile readability revision
 Built-in image_gen edit; source vinoteca-ai-instagram-ja.png. Output vinoteca-ai-instagram-ja-large-type.png. Preserve burgundy/ivory/gold photographic wine and scan atmosphere; recompose 4:5 with very large mobile-readable typography. Remove decorative microcopy, English slogans, dense phone UI, lengthy paragraphs and tiny annotations. Exact core copy: Vinoteca; ワイン情報も、あなたの好みも。; AIソムリエに、おまかせ。; ラベルからワイン情報; あなたの評価で好みを分析; 次の一本をAIに相談; ベータ版を無料で体験; vinoteca-bice.vercel.app. Bottle scan and abstract two-colour hexagonal comparison, without small axis labels. Headline approximately 85px at 1080px width, feature text at least 45px. No guaranteed accuracy claims. Graph remains a proposed feature, not a current product screenshot.
+
+## 2026-09-29 labelled chart and tasting-note revision
+Built-in image_gen edit of large-type version, saved as vinoteca-ai-instagram-ja-labelled.png. Preserve burgundy/gold style and large mobile text. Add gold legend あなたの好み and burgundy このワイン; axes ボディ, 酸味, 渋み, 甘さ, 香りの強さ, アルコール感. Prominent copy 飲んだワインを、ずっと残せる。 and あなた専用のテイスティングノート. Preserve existing core headline, three features, CTA and URL. No tiny decorative copy or eternal hosting guarantee. Chart is still a conceptual illustration pending implementation.
