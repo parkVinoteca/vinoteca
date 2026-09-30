@@ -1,0 +1,10 @@
+const test=require('node:test'),assert=require('node:assert/strict')
+const {load}=require('./helpers.cjs')
+const {sommelierDraft}=load('src/lib/tastingDraft.ts')
+test('Sommelier handoff carries identity only, not AI tasting or ratings',()=>{
+ const d=sommelierDraft({wineName:'Chablis',vintage:'2022',body:5,score:4,profile:{acidity:'high'},producer:null},'data:image/jpeg;base64,AA==')
+ assert.equal(d.wineName,'Chablis');assert.equal(d.producer,'');assert.equal(d.vintage,'2022')
+ assert.equal(d.score,undefined);assert.equal(d.body,undefined);assert.equal(d.profile,undefined)
+ assert.ok(d.imageUrl.startsWith('data:image/'))
+ assert.equal(sommelierDraft({},'https://example.com/a.jpg').imageUrl,'')
+})

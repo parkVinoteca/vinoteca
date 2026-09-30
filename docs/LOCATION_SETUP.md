@@ -11,3 +11,5 @@ OSM tile display has no API key or metered API integration. Attribution is retai
 Privacy notice addition for review: Location capture is optional. Coordinates and device accuracy are stored with the user's private wine record after Save. The device is queried only when the user requests it. Displaying the map transmits coordinates and normal web request information to OpenStreetMap. Users can remove saved location through Edit and Save. Venue names are entered manually. https://osmfoundation.org/wiki/Privacy_Policy
 
 Validation: pure coordinate/map URL tests, PGlite DB range/pair checks and cross-user isolation. Browser uses an explicitly synthetic Tokyo Station coordinate for visual map verification; actual user GPS permission is not exercised automatically.
+
+2026-09-30: User approved DB -> merge -> production sequence. Applied 20260928_location.sql in production SQL Editor; readback confirms 3 location columns, location_constraint=true and owner RLS still enabled. Existing rows unchanged.

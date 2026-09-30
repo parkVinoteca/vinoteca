@@ -1,5 +1,6 @@
 'use client'
 import AppIcon from './AppIcon'
+import {sommelierDraft,type TastingDraft} from '@/lib/tastingDraft'
 import { useState, useRef, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import { translations, Language } from '@/i18n'
@@ -13,9 +14,9 @@ import { personalRating } from '@/lib/ratings'
 import { TASTE_PROFILE_MIN_RECORDS } from '@/lib/productConfig'
 import type { User } from '@supabase/supabase-js'
 
-interface Props { lang: Language; user: User; onBack: () => void }
+interface Props { lang: Language; user: User; onBack: () => void; onTaste: (draft:TastingDraft)=>void }
 
-export default function AIRecommend({ lang, user, onBack }: Props) {
+export default function AIRecommend({ lang, user, onBack, onTaste }: Props) {
   const t = translations[lang]
   const st = sommelierText[lang]
   const fileRef = useRef<HTMLInputElement>(null)
@@ -256,6 +257,10 @@ export default function AIRecommend({ lang, user, onBack }: Props) {
             </div>
           )}
 
+          <button type="button" onClick={() => onTaste(sommelierDraft(result,imageUrl))} className="btn-primary w-full">
+            {lang === 'ja' ? 'このワインを評価する' : '이 와인 평가하기'}
+          </button>
+          <p className="text-xs text-cave-100">{lang === 'ja' ? 'ワイン情報と写真を引き継ぎます。味わいと評価はご自身で入力してください。' : '와인 정보와 사진을 이어받습니다. 맛과 평점은 직접 입력해주세요.'}</p>
           <button onClick={() => uploadRef.current?.click()} disabled={unavailable} className="btn-secondary w-full disabled:opacity-50">
             {lang === 'ja' ? '別のワインを解析' : '다른 와인 분석'}
           </button>
