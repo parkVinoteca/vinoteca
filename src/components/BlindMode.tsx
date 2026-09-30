@@ -171,6 +171,12 @@ export default function BlindMode({ lang, user, onBack }: Props) {
         </button>
       </div>
 
+      <div className="card p-5 mb-5">
+        <AppIcon name="blind" className="h-9 w-9 mb-3 text-gold-700" />
+        <h2 className="font-serif text-xl text-gold-700">{lang === 'ja' ? 'ラベルを隠せば、ワインはもっと面白い。' : '라벨을 가리면, 와인이 더 재미있어집니다.'}</h2>
+        <p className="mt-2 text-sm leading-7">{lang === 'ja' ? 'ブラインドテイスティング専用モードで、仲間とワインを楽しもう！香りや味わいを頼りに予想して、最後に答え合わせ。意外な好みが見つかるかも。' : '블라인드 테이스팅 전용 모드로 친구들과 와인을 즐겨보세요! 향과 맛으로 추측하고, 마지막에 정답을 확인하면 뜻밖의 취향을 발견할지도 몰라요.'}</p>
+        <p className="mt-3 text-xs text-cave-100">{lang === 'ja' ? 'ラベルを隠す → 感じたことを記録 → 答え合わせしてマイワインへ' : '라벨 가리기 → 느낀 점 기록 → 정답 확인 후 마이와인에 저장'}</p>
+      </div>
       {sessions.length === 0 ? (
         <div className="text-center py-16 text-cave-100">
           <AppIcon name="blind" className="mx-auto mb-3 h-10 w-10"/>

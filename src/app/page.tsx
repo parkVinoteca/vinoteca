@@ -1,4 +1,5 @@
 'use client'
+import type {TastingDraft} from '@/lib/tastingDraft'
 import { APP_VERSION } from '@/lib/productConfig'
 import { useState, useEffect } from 'react'
 import { supabase, isSupabaseConfigured } from '@/lib/supabase'
@@ -20,10 +21,12 @@ export default function App() {
   const [user, setUser] = useState<User | null>(null)
   const [recovering, setRecovering] = useState(false)
   const [loading, setLoading] = useState(true)
+  const [draft,setDraft] = useState<TastingDraft | undefined>()
   const [screen, setScreen] = useState<Screen>('home')
   const [lang, setLang] = useState<Language>('ja')
   const [authError, setAuthError] = useState(false)
   const [languageReady, setLanguageReady] = useState(false)
+  const navigate = (next:Screen) => {setDraft(undefined);setScreen(next)}
   const t = translations[lang]
 
   useEffect(() => {
@@ -44,6 +47,7 @@ export default function App() {
       setUser(session?.user ?? null)
     }).catch(() => setAuthError(true)).finally(() => setLoading(false))
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'SIGNED_OUT') setDraft(undefined)
       if (event === 'PASSWORD_RECOVERY') setRecovering(true)
       setUser(session?.user ?? null)
     })
@@ -92,11 +96,11 @@ export default function App() {
       {/* Main Content */}
       <main className="flex-1 pb-20">
         {screen === 'account' && <Membership lang={lang} />}
-        {screen === 'home' && <HomeScreen lang={lang} user={user} onNavigate={setScreen} />}
-        {screen === 'tasting' && <TastingSheet lang={lang} user={user} onBack={() => setScreen('home')} />}
+        {screen === 'home' && <HomeScreen lang={lang} user={user} onNavigate={navigate} />}
+        {screen === 'tasting' && <TastingSheet lang={lang} user={user} draft={draft} onBack={() => navigate('home')} />}
         {screen === 'blind' && <BlindMode lang={lang} user={user} onBack={() => setScreen('home')} />}
         {screen === 'cellar' && <MyCellar lang={lang} user={user} onBack={() => setScreen('home')} />}
-        {screen === 'recommend' && <AIRecommend lang={lang} user={user} onBack={() => setScreen('home')} />}
+        {screen === 'recommend' && <AIRecommend lang={lang} user={user} onBack={() => navigate('home')} onTaste={value=>{setDraft(value);setScreen('tasting')}} />}
       </main>
 
       {/* Bottom Navigation */}
@@ -110,7 +114,7 @@ export default function App() {
         ] as const).map(item => (
           <button
             key={item.id}
-            onClick={() => setScreen(item.id)}
+            onClick={() => navigate(item.id)}
             className={`flex-1 flex flex-col items-center py-2 gap-0.5 transition-colors ${
               screen === item.id ? 'text-gold-700' : 'text-cave-200'
             }`}

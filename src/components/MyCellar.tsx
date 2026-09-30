@@ -1,6 +1,8 @@
 'use client'
 import { countryKey, countryLabel } from '@/lib/countries'
 import TastingSheet from './TastingSheet'
+import DrinkingLocation from './DrinkingLocation'
+import {readLocation} from '@/lib/drinkingLocation'
 import AppIcon from './AppIcon'
 import CriticScores from './CriticScores'
 import { useState, useEffect } from 'react'
@@ -126,6 +128,7 @@ export default function MyCellar({ lang, user, onBack }: Props) {
             {selected.quality && <p>{t.tastingGuide.quality}: {selected.quality}</p>}
           </div>}
           {selected.drinking_place && <div className="card p-3 mb-3"><h3 className="text-sm">{lang === 'ja' ? '飲んだ場所' : '와인을 마신 곳'}</h3><p className="text-sm whitespace-pre-wrap break-words">{selected.drinking_place}</p></div>}
+          {readLocation(selected) && <DrinkingLocation lang={lang} value={readLocation(selected)}/>}
           {selected.notes && (
             <div className="card p-4 mb-3">
               <div className="text-xs font-medium text-gold-700 mb-2">{t.tasting.notes}</div>

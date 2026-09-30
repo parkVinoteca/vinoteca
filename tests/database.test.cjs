@@ -107,5 +107,13 @@ test('Fresh schema, migration, owner RLS, private storage and atomic AI quotas',
     assert.equal(alerts.length,1);assert.equal(alerts[0].request_count,101)
     await db.exec('reset role')
     assert.equal((await db.query("select public from storage.buckets where id='label-images'")).rows[0].public,false)
+    await db.exec(fs.readFileSync(path.resolve(__dirname,'../supabase/migrations/20260928_location.sql'),'utf8'))
+    await db.exec("set role authenticated; select set_config('request.jwt.claim.sub','00000000-0000-0000-0000-000000000001',false)")
+    await db.exec("update public.tastings set drinking_latitude=35.68,drinking_longitude=139.76,drinking_accuracy=20 where user_id=auth.uid()")
+    assert.equal((await db.query('select drinking_latitude from public.tastings limit 1')).rows[0].drinking_latitude,35.68)
+    await assert.rejects(db.query("update public.tastings set drinking_latitude=91 where user_id=auth.uid()"))
+    await assert.rejects(db.query("update public.tastings set drinking_longitude=null where user_id=auth.uid()"))
+    assert.equal((await db.query("update public.tastings set drinking_latitude=0 where user_id='00000000-0000-0000-0000-000000000002' returning id")).rows.length,0)
+    await db.exec('reset role')
   } finally { await db.close() }
 })

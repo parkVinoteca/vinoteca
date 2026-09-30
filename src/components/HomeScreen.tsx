@@ -1,5 +1,6 @@
 'use client'
-import { countryKey, countryLabel } from '@/lib/countries'
+import { countryLabel } from '@/lib/countries'
+import { frequentWines } from '@/lib/frequentWines'
 import AppIcon from './AppIcon'
 import { useState, useEffect } from 'react'
 import { personalRating, formatRating } from '@/lib/ratings'
@@ -17,7 +18,7 @@ interface Props {
 
 export default function HomeScreen({ lang, user, onNavigate }: Props) {
   const t = translations[lang]
-  const [stats, setStats] = useState({ total: 0, avgScore: 0, topCountry: '-', recentWine: '-' })
+  const [stats, setStats] = useState({ total: 0, avgScore: 0, countries: [] as {key:string;count:number;rank:number}[], types: [] as {key:string;count:number;rank:number}[] })
   const [error, setError] = useState('')
   const [recentTastings, setRecentTastings] = useState<any[]>([])
 
@@ -44,15 +45,11 @@ export default function HomeScreen({ lang, user, onNavigate }: Props) {
         ? Math.round(withScore.reduce((s, d) => s + personalRating(d)!, 0) / withScore.length * 10) / 10
         : 0
 
-      const countryCounts: Record<string, number> = {}
-      all.forEach(d => { if (d.country) countryCounts[countryKey(d.country)] = (countryCounts[countryKey(d.country)] || 0) + 1 })
-      const topCountry = Object.entries(countryCounts).sort((a, b) => b[1] - a[1])[0]?.[0] || '-'
 
       setStats({
         total: all.length,
         avgScore,
-        topCountry,
-        recentWine: all[0]?.wine_name || all[0]?.producer || '-',
+        ...frequentWines(all),
       })
       setRecentTastings(await Promise.all(all.slice(0, 5).map(async row => ({ ...row, image_url: await resolveLabelImage(row.label_image_url, user.id) }))))
     }
@@ -75,13 +72,13 @@ export default function HomeScreen({ lang, user, onNavigate }: Props) {
         {[
           { label: lang === 'ja' ? '記録数' : '기록 수', value: `${stats.total}${lang === 'ja' ? '本' : '병'}`, icon: 'wine' as const },
           { label: lang === 'ja' ? '平均スコア' : '평균 점수', value: stats.avgScore ? `${stats.avgScore.toFixed(1)} / 5` : '—', icon: 'star' as const },
-          { label: lang === 'ja' ? 'よく飲む国' : '자주 마시는 나라', value: countryLabel(stats.topCountry, lang), icon: 'globe' as const },
-          { label: lang === 'ja' ? '最近のワイン' : '최근 와인', value: stats.recentWine.length > 10 ? stats.recentWine.slice(0, 10) + '...' : stats.recentWine, icon: 'tasting' as const },
+          { label: lang === 'ja' ? 'よく飲む国' : '자주 마시는 나라', value: stats.countries.map(v=>`${v.rank}${lang==='ja'?'位':'위'} ${countryLabel(v.key,lang)} · ${v.count}${lang==='ja'?'本':'병'}`).join('\n') || '—', icon: 'globe' as const },
+          { label: lang === 'ja' ? 'よく飲むタイプ' : '자주 마시는 와인 타입', value: stats.types.map(v=>`${v.rank}${lang==='ja'?'位':'위'} ${t.wineType[v.key as keyof typeof t.wineType]} · ${v.count}${lang==='ja'?'本':'병'}`).join('\n') || '—', icon: 'wine' as const },
         ].map((s, i) => (
           <div key={i} className="card p-4">
             <AppIcon name={s.icon} className="mx-auto mb-1 h-6 w-6"/>
             <div className="text-xs text-cave-100 mb-0.5">{s.label}</div>
-            <div className="font-medium text-gold-700 text-sm">{s.value}</div>
+            <div className="font-medium text-gold-700 text-sm whitespace-pre-line leading-6">{s.value}</div>
           </div>
         ))}
       </div>

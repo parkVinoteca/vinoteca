@@ -1,5 +1,8 @@
 'use client'
 import { useState, useRef, useEffect } from 'react'
+import type {TastingDraft} from '@/lib/tastingDraft'
+import DrinkingLocation from './DrinkingLocation'
+import {readLocation} from '@/lib/drinkingLocation'
 import { personalRating } from '@/lib/ratings'
 import type { Database } from '@/lib/supabase'
 import { supabase } from '@/lib/supabase'
@@ -17,6 +20,7 @@ import { translations, Language } from '@/i18n'
 import type { User } from '@supabase/supabase-js'
 
 interface Props {
+  draft?: TastingDraft
   lang: Language
   user: User
   onBack: () => void
@@ -81,7 +85,7 @@ interface Props {
 
 
 
-export default function TastingSheet({ lang, user, onBack, blindSessionId, blindWineNumber, onSaved, initial }: Props) {
+export default function TastingSheet({ lang, user, onBack, blindSessionId, blindWineNumber, onSaved, initial, draft }: Props) {
   const t = translations[lang]
   const fileRef = useRef<HTMLInputElement>(null)
   const uploadRef = useRef<HTMLInputElement>(null)
@@ -91,7 +95,7 @@ export default function TastingSheet({ lang, user, onBack, blindSessionId, blind
   const [cropFile, setCropFile] = useState<File | null>(null)
   const saveLock = useRef(false)
   const [labelPath, setLabelPath] = useState(initial?.label_image_url || '')
-  const [labelImageUrl, setLabelImageUrl] = useState(initial?.image_url || '')
+  const [labelImageUrl, setLabelImageUrl] = useState(initial?.image_url || draft?.imageUrl || '')
   const [analyzing, setAnalyzing] = useState(false)
   const [analysisStage, setAnalysisStage] = useState<AnalysisStage>('upload')
   const analysisRequest = useRef<AbortController | null>(null)
@@ -109,13 +113,13 @@ export default function TastingSheet({ lang, user, onBack, blindSessionId, blind
   const [monthlyLimit, setMonthlyLimit] = useState<number | null>(null)
 
   // Wine Info
-  const [wineName, setWineName] = useState(initial?.wine_name || initial?.answer_wine || '')
-  const [producer, setProducer] = useState(initial?.producer || initial?.answer_producer || '')
-  const [vintage, setVintage] = useState(initial?.vintage ? String(initial.vintage) : '')
-  const [region, setRegion] = useState(initial?.region || '')
-  const [country, setCountry] = useState(initial?.country || '')
-  const [grapeVariety, setGrapeVariety] = useState(initial?.grape_variety || '')
-  const [wineType, setWineType] = useState(initial?.wine_type || '')
+  const [wineName, setWineName] = useState(initial?.wine_name || draft?.wineName || initial?.answer_wine || '')
+  const [producer, setProducer] = useState(initial?.producer || draft?.producer || initial?.answer_producer || '')
+  const [vintage, setVintage] = useState(initial?.vintage ? String(initial.vintage) : draft?.vintage || '')
+  const [region, setRegion] = useState(initial?.region || draft?.region || '')
+  const [country, setCountry] = useState(initial?.country || draft?.country || '')
+  const [grapeVariety, setGrapeVariety] = useState(initial?.grape_variety || draft?.grapeVariety || '')
+  const [wineType, setWineType] = useState(initial?.wine_type || draft?.wineType || '')
   const [criticScores, setCriticScores] = useState<CriticScore[]>(initial?.critic_scores || [])
   const [researchedIdentity, setResearchedIdentity] = useState(initial ? JSON.stringify([initial.wine_name || '', initial.producer || '', initial.vintage ? String(initial.vintage) : '']) : '')
   const [researchedFacts, setResearchedFacts] = useState('')
@@ -155,6 +159,7 @@ export default function TastingSheet({ lang, user, onBack, blindSessionId, blind
   const [stars, setStars] = useState(initial ? personalRating(initial) || 0 : 0)
   const [notes, setNotes] = useState(initial?.notes || '')
   const [drinkingPlace, setDrinkingPlace] = useState(initial?.drinking_place || '')
+  const [drinkingLocation, setDrinkingLocation] = useState(readLocation(initial))
 
   // Blind deduction
   const [deductionType, setDeductionType] = useState(initial?.deduction_type || '')
@@ -314,6 +319,15 @@ export default function TastingSheet({ lang, user, onBack, blindSessionId, blind
     setSaving(true)
     setMessage('')
     try {
+      let savedLabelPath=labelPath
+      if(!savedLabelPath && labelImageUrl.startsWith('data:image/')) {
+        const blob=await (await fetch(labelImageUrl)).blob()
+        const path=`${user.id}/${crypto.randomUUID()}.${blob.type==='image/png'?'png':'jpg'}`
+        const {error:uploadError}=await supabase.storage.from('label-images').upload(path,blob,{contentType:blob.type})
+        if(uploadError) throw uploadError
+        savedLabelPath=path;setLabelPath(path)
+      }
+
       const payload = {
         user_id: user.id,
         mode: (isBlind ? 'blind' : 'normal') as 'blind' | 'normal',
@@ -326,7 +340,7 @@ export default function TastingSheet({ lang, user, onBack, blindSessionId, blind
         country: country || null,
         grape_variety: grapeVariety || null,
         wine_type: ((isBlind && answerWineType) || wineType || null) as 'red' | 'white' | 'rose' | 'sparkling' | 'sweet' | null,
-        label_image_url: labelPath || null,
+        label_image_url: savedLabelPath || null,
         color_hue: colorHue || null,
         color_depth: colorDepth || null,
         clarity: clarity || null,
@@ -363,6 +377,9 @@ export default function TastingSheet({ lang, user, onBack, blindSessionId, blind
         palate_notes: palateNotes || null,
         notes: notes || null,
         drinking_place: drinkingPlace.trim() || null,
+        drinking_latitude: drinkingLocation?.latitude ?? null,
+        drinking_longitude: drinkingLocation?.longitude ?? null,
+        drinking_accuracy: drinkingLocation?.accuracy ?? null,
         critic_scores: verifiedScores,
         language: lang,
       }
@@ -459,6 +476,7 @@ export default function TastingSheet({ lang, user, onBack, blindSessionId, blind
         {(
           <div>
             <div className="section-title">{lang === 'ja' ? 'ワイン情報' : '와인 정보'}</div>
+            {draft && <p className="mb-3 text-xs text-cave-100">{lang === 'ja' ? 'AIソムリエから引き継いだ情報です。内容を確認・修正してから、ご自身の評価を記録してください。' : 'AI 소믈리에에서 가져온 정보입니다. 내용을 확인·수정한 뒤 직접 평가해주세요.'}</p>}
             {wineResearch && <div role="status" className="mb-4 border border-gold-900/20 bg-cave-600/20 p-3 text-xs leading-6 text-cave-100">
               <p>{!factsUnchanged ? t.analysis.identityEdited : wineResearch.status === 'catalog' ? t.analysis.identityCatalog : wineResearch.status === 'knowledge' ? t.analysis.identityKnowledge : wineResearch.status === 'verified' ? t.analysis.identityVerified : t.analysis.identityUnverified}</p>
               {factsUnchanged && wineResearch.brand && <p>{t.analysis.brand}: {wineResearch.brand}</p>}
@@ -545,14 +563,14 @@ export default function TastingSheet({ lang, user, onBack, blindSessionId, blind
 
         {!isBlind && <div className="sticky top-[106px] z-30 rounded-xl border border-cave-400 bg-white p-1 shadow-sm" role="group" aria-label={lang === 'ja' ? '入力モード' : '입력 모드'}>
           <div className="grid grid-cols-3 gap-1">
-            <button onClick={() => changeEntryMode('quick')} aria-pressed={entryMode === 'quick'} className={`min-h-11 rounded-lg text-sm font-medium ${entryMode === 'quick' ? 'bg-gold-500 text-white' : 'text-cave-100'}`}>{lang === 'ja' ? 'ひとこと記録' : '초간단 기록'}</button>
-            <button onClick={() => changeEntryMode('simple')} aria-pressed={entryMode === 'simple'} className={`min-h-11 rounded-lg text-sm font-medium ${entryMode === 'simple' ? 'bg-gold-500 text-white' : 'text-cave-100'}`}>{lang === 'ja' ? 'かんたん入力' : '간단 입력'}</button>
+            <button onClick={() => changeEntryMode('quick')} aria-pressed={entryMode === 'quick'} className={`min-h-11 rounded-lg text-sm font-medium ${entryMode === 'quick' ? 'bg-gold-500 text-white' : 'text-cave-100'}`}>{lang === 'ja' ? 'かんたん入力' : '간단 입력'}</button>
+            <button onClick={() => changeEntryMode('simple')} aria-pressed={entryMode === 'simple'} className={`min-h-11 rounded-lg text-sm font-medium ${entryMode === 'simple' ? 'bg-gold-500 text-white' : 'text-cave-100'}`}>{lang === 'ja' ? '一般入力' : '일반 입력'}</button>
             <button onClick={() => changeEntryMode('expert')} aria-pressed={entryMode === 'expert'} className={`min-h-11 rounded-lg text-sm font-medium ${entryMode === 'expert' ? 'bg-gold-500 text-white' : 'text-cave-100'}`}>{lang === 'ja' ? '専門的' : '전문 입력'}</button>
           </div>
         </div>}
 
         {entryMode === 'simple' && !isBlind && <div className="card p-4">
-          <div className="section-title">{lang === 'ja' ? 'かんたんテイスティング' : '간단 테이스팅'}</div>
+          <div className="section-title">{lang === 'ja' ? '一般テイスティング' : '일반 테이스팅'}</div>
           {!wineType && <p className="mb-4 rounded-lg bg-gold-50 p-3 text-sm text-gold-800">{lang === 'ja' ? '先にワインタイプを選ぶと、色と渋みの項目が合った内容になります。' : '먼저 와인 유형을 선택하면 색과 떫은맛 항목이 알맞게 표시됩니다.'}</p>}
           {colorOptions.length > 0 && <div className="mb-5">
             <div className="text-sm font-medium text-ink mb-2">{lang === 'ja' ? 'ワインの色' : '와인 색'}</div>
@@ -718,6 +736,7 @@ export default function TastingSheet({ lang, user, onBack, blindSessionId, blind
 
         <div>
           <label htmlFor="drinking-place" className="section-title block">{lang === 'ja' ? '飲んだ場所（任意）' : '와인을 마신 곳 (선택)'}</label>
+          <DrinkingLocation lang={lang} value={drinkingLocation} onChange={setDrinkingLocation}/>
           <input id="drinking-place" type="text" maxLength={200} value={drinkingPlace} onChange={e => setDrinkingPlace(e.target.value)} placeholder={lang === 'ja' ? '例：自宅、ワインショップ〇〇、レストラン〇〇' : '예: 집, 와인샵 ○○, 레스토랑 ○○'} className="w-full border border-cave-400/30 p-3 text-sm focus:outline-none focus:border-gold-500/40 bg-cave-600/40" />
         </div>
 

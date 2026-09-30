@@ -1,0 +1,11 @@
+const test=require('node:test')
+const assert=require('node:assert/strict')
+const {load}=require('./helpers.cjs')
+const {frequentWines:rank}=load('src/lib/frequentWines.ts')
+const frequentWines=rows=>JSON.parse(JSON.stringify(rank(rows)))
+test('Frequency rankings combine country aliases, omit unknown types and retain tied ranks',()=>{
+ const result=frequentWines([{country:'Spain',wine_type:'red'},{country:'スペイン',wine_type:'white'},{country:'France',wine_type:'red'},{country:null,wine_type:'white'},{wine_type:'sweet'}])
+ assert.deepEqual(result.countries,[{key:'ES',count:2,rank:1},{key:'FR',count:1,rank:2}])
+ assert.deepEqual(result.types,[{key:'red',count:2,rank:1},{key:'white',count:2,rank:1}])
+ assert.deepEqual(frequentWines([]),{countries:[],types:[]})
+})
